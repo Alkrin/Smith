@@ -1,0 +1,2 @@
+# Smith
+RPGMaker MZ Project
