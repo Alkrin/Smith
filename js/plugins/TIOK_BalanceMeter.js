@@ -288,35 +288,8 @@ Window_VisualBalanceGauge.prototype.drawGauge = function() {
 	b.strokeRect(20, 0, b.width - 20, b.height, '#000000');
 
 	// Bar progress.
-	const clerp = rgb2hex(interpolateColor(hex2rgb(color1), hex2rgb(color2), rate))
+	const clerp = TIOK.Utils.rgb2hex(TIOK.Utils.interpolateColor(TIOK.Utils.hex2rgb(color1), TIOK.Utils.hex2rgb(color2), rate))
 	b.gradientFillRect(21, 1, (b.width - 22) * rate, b.height - 2, clerp, clerp, false);
 }
-
-// Converts a #ffffff hex string into an [r,g,b] array
-var hex2rgb = function(hex) {
-    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? [
-        parseInt(result[1], 16),
-        parseInt(result[2], 16),
-        parseInt(result[3], 16)
-    ] : null;
-};
-
-// Inverse of the above
-var rgb2hex = function(rgb) {
-    return "#" + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1);
-};
-
-// Interpolates two [r,g,b] colors and returns an [r,g,b] of the result
-// Taken from the awesome ROT.js roguelike dev library at
-// https://github.com/ondras/rot.js
-var interpolateColor = function(color1, color2, factor) {
-  if (arguments.length < 3) { factor = 0.5; }
-  var result = color1.slice();
-  for (var i = 0; i < 3; i++) {
-    result[i] = Math.round(result[i] + factor * (color2[i] - color1[i]));
-  }
-  return result;
-};
 
 })()}

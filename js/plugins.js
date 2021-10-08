@@ -7,5 +7,6 @@ var $plugins =
 {"name":"TIOK_SmithItemGenerator","status":true,"description":"v1.0 Generates items into the MZ database, so you don't have to manually input all ingredient and quality permutations.","parameters":{"Run Database Validation":"false","Write Permutations to Database":"false"}},
 {"name":"TIOK_SmithCraftingSystem","status":true,"description":"v1.0 Tracks all of the custom state related to the Smith crafting system","parameters":{}},
 {"name":"TIOK_ItemSelectFilters","status":true,"description":"v1.0 Allows the user to add additional conditions when filtering items for the SelectItem command.","parameters":{}},
-{"name":"TIOK_SmithSmithyUI","status":true,"description":"v1.0 Adds the Smithy UI for use in Smith.","parameters":{}}
+{"name":"TIOK_SmithSmithyUI","status":true,"description":"v1.0 Adds the Smithy UI for use in Smith.","parameters":{}},
+{"name":"TIOK_SmithCraftingUI","status":true,"description":"v1.0 Adds a custom scene for the Smith crafting system.","parameters":{}}
 ];

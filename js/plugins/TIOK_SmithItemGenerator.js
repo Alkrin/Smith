@@ -747,12 +747,12 @@ DataManager.createGameObjects = function() {
 	let nextArmorIndex = TIOK.SmithItemGenerator.firstGeneratedArmorIndex;
 	let nextWeaponIndex = TIOK.SmithItemGenerator.firstGeneratedWeaponIndex;
 	patterns.forEach((pattern) => {
-		let isArmor = true;
+		pattern.isArmor = true;
 		// Find all template items (unobtainable item from which we can copy most fields to help generate the new items).
 		const baseItemName = pattern.name.substr(9);
 		let templateItem = $dataArmors.find((armor) => { return armor && armor.name === baseItemName; });
 		if (!templateItem) {
-			isArmor = false;
+			pattern.isArmor = false;
 			templateItem = $dataWeapons.find((weapon) => { return weapon && weapon.name === baseItemName; });
 		}
 		if (!templateItem) {
@@ -761,10 +761,10 @@ DataManager.createGameObjects = function() {
 		} else {
 			pattern.templateItem = templateItem;
 		}
-		const isWeapon = !isArmor;
+		pattern.isWeapon = !pattern.isArmor;
 
 		// Capture the first index of items generated for this pattern so we can index into them during crafting.
-		pattern.firstIndex = isArmor ? nextArmorIndex : nextWeaponIndex;
+		pattern.firstIndex = pattern.isArmor ? nextArmorIndex : nextWeaponIndex;
 
 		//Iterate all permutations.
 		getSupportedOres(pattern).forEach((ore) => {
@@ -773,7 +773,7 @@ DataManager.createGameObjects = function() {
 				// Ranks are iterated from the base rank down to E.
 				if (pattern.maxAdditives === 0) {
 					// No additives allowed, so make the item now.
-					createItem(isArmor, isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank);
+					createItem(pattern.isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank);
 				} else {
 					AdditiveFamilyArray.forEach((familyA) => {
 						// Skip flux, as it doesn't modify items directly.
@@ -783,7 +783,7 @@ DataManager.createGameObjects = function() {
 						getRanksAtOrBelow('S').forEach((familyARank) => {
 							if (pattern.maxAdditives === 1) {
 								// Exactly one additive allowed, so make the item now.
-								createItem(isArmor, isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank, familyA, familyARank);
+								createItem(pattern.isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank, familyA, familyARank);
 							} else {
 								AdditiveFamilyArray.forEach((familyB) => {
 									// Skip flux, as it doesn't modify items directly.
@@ -792,7 +792,7 @@ DataManager.createGameObjects = function() {
 									}
 									getRanksAtOrBelow('S').forEach((familyBRank) => {
 										// Exactly two additives allowed, so make the item now.
-										createItem(isArmor, isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank, familyA, familyARank, familyB, familyBRank);
+										createItem(pattern.isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank, familyA, familyARank, familyB, familyBRank);
 									});
 								});							
 							}
@@ -811,7 +811,7 @@ DataManager.createGameObjects = function() {
 	}
 };
 
-function createItem(isArmor, index, pattern, ore, oreRank, familyA, familyARank, familyB, familyBRank) {
+function createItem(index, pattern, ore, oreRank, familyA, familyARank, familyB, familyBRank) {
 	// If we aren't updating the DB this launch, we will trust the DB as it currently stands.
 	if (!params.writeToDB) {
 		return;
@@ -858,16 +858,16 @@ function createItem(isArmor, index, pattern, ore, oreRank, familyA, familyARank,
 
 	// Apply familyA by rank.
 	if (familyA) {
-		newItem = familyA.applyToItem(newItem, familyARank, isArmor);
+		newItem = familyA.applyToItem(newItem, familyARank, pattern.isArmor);
 	}
 	
 	// Apply familyB by rank.
 	if (familyB) {
-		newItem = familyB.applyToItem(newItem, familyBRank, isArmor);
+		newItem = familyB.applyToItem(newItem, familyBRank, pattern.isArmor);
 	}
 
 	// Push the item into either $dataArmors or $dataWeapons.
-	if (isArmor) {
+	if (pattern.isArmor) {
 		$dataArmors[index] = newItem;
 	} else {
 		$dataWeapons[index] = newItem;
