@@ -962,6 +962,9 @@ function parsePattern(item) {
 		oreRank: notes.find((note) => { return note.startsWith('OreRank:')}).substr(8),
 		oreCount: +(notes.find((note) => { return note.startsWith('OreCount:')}).substr(9)),
 		maxAdditives: +(notes.find((note) => { return note.startsWith('MaxAdditives:')}).substr(13)),
+		shape: +(notes.find((note) => { return note.startsWith('Shape:')}).substr(6)),
+		polish: +(notes.find((note) => { return note.startsWith('Polish:')}).substr(7)),
+		image: notes.find((note) => { return note.startsWith('Image:')}).substr(6),
 		additiveMods: {},
 	};
 
@@ -975,12 +978,19 @@ function parsePattern(item) {
 
 function parseOre(item) {
 	const notes = item.note.split('\n');
+	const heatNote = notes.find((note) => { return note.startsWith('Heat:')}).substr(5);
+	const heats = heatNote.split(',');
 	const ore = {
 		index: item.id,
 		name: item.name,
 		minSkill: +(notes.find((note) => { return note.startsWith('MinSkill:')}).substr(9)),
 		successRate: +(notes.find((note) => { return note.startsWith('SuccessRate:')}).substr(12)),
 		rank: notes.find((note) => { return note.startsWith('Rank:')}).substr(5),
+		color: TIOK.Utils.hex2rgb(notes.find((note) => { return note.startsWith('Color:')}).substr(7)),
+		heatEnough: +heats[0],
+		heatGood: +heats[1],
+		heatTooMuch: +heats[2],
+		heatMelting: +heats[3],
 		additiveMods: {},
 	};
 

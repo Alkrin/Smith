@@ -66,8 +66,9 @@ TIOK.getSelectedOre = function() {
 	return selectedOre;
 }
 
-TIOK.getSelectedFire = function() {
-	return null;
+TIOK.getFireHeat = function() {
+	const heat = $gameVariables._data[9];
+	return heat;
 }
 
 })()}
