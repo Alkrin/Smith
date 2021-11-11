@@ -48,6 +48,10 @@ if (!true) {
 
 console.warn('ZZZ LOADING TIOK_SmithCraftingSystem');
 
+TIOK.getBlacksmithingSkill = function() {
+	return $gameActors.actor(1).atk;
+}
+
 TIOK.getSelectedPattern = function() {
 	const selectedPatternId = $gameVariables._data[7];
 	return TIOK.SmithItemGenerator.patterns.find((pattern) => { return pattern.index === selectedPatternId; });
@@ -69,6 +73,27 @@ TIOK.getSelectedOre = function() {
 TIOK.getFireHeat = function() {
 	const heat = $gameVariables._data[9];
 	return heat;
+}
+
+TIOK.getAdditiveById = function(additiveId) {
+	return TIOK.SmithItemGenerator.additives.find((additive) => { return additive.index === additiveId; });
+}
+
+TIOK.getOreById = function(oreId) {
+	const ranks = ['S','A','B','C','D','E'];
+	let finalOre = null;
+
+	ranks.forEach((rank) => {
+		const oreFound = TIOK.SmithItemGenerator.ores[rank].find((ore) => { return ore.index === oreId; });
+		if (oreFound) {
+			finalOre = oreFound;
+		}
+	});
+	return finalOre;
+}
+
+TIOK.getPatternById = function(patternId) {
+	return TIOK.SmithItemGenerator.patterns.find((pattern) => { return pattern.index === patternId; });
 }
 
 })()}

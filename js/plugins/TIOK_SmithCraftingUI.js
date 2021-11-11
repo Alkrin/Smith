@@ -40,8 +40,12 @@ TIOK.SmithCraftingUI = TIOK.SmithCraftingUI || {
 	currentHeat: 0, // How hot the ore is.
 	currentPolish: 0, // How "polished" (sharpened/smoothed) the item is.
 
+	additives: [], // Additives that have been added to the current crafting run.
+	flux: null, // The flux that has been applied to the current crafting run (or null for none).
+
 	turnCountdown: 0,
 	hammerPending: false,
+	pendingAdditive: null,
 };
 
 //=============================================================================
@@ -71,8 +75,15 @@ PluginManager.registerCommand('TIOK_SmithCraftingUI', 'showCraftingUI' , functio
 	SceneManager.push(SmithCraftingScene);
 
 	// Reset crafting state.
+	TIOK.SmithCraftingUI.currentShape = 0;
 	TIOK.SmithCraftingUI.currentHeat = 0;
+	TIOK.SmithCraftingUI.currentPolish = 0;
+	TIOK.SmithCraftingUI.additives = [];
+	TIOK.SmithCraftingUI.flux = null;
 	TIOK.SmithCraftingUI.currentLocation = 'anvil';
+	TIOK.SmithCraftingUI.turnCountdown = 0;
+	TIOK.SmithCraftingUI.hammerPending = false;
+	TIOK.SmithCraftingUI.pendingAdditive = null;
 });
 
 //=============================================================================
@@ -103,12 +114,15 @@ SmithCraftingScene.prototype.create = function() {
 
 	this.createCraftedItemSprite();
 
+	this.createCrate();
+
 	this.createHeatGauge();
 	this.createShapeGauge();
 	this.createPolishGauge();
 
 	this.createWindowLayer();
 	this.createCommandWindow();
+	this.createAdditiveWindow();
 	this.createResultsWindow();
 };
 
@@ -168,9 +182,39 @@ SmithCraftingScene.prototype.createGrindstone = function() {
     this.addChild(this._grindstoneSprite);
 };
 
+SmithCraftingScene.prototype.createCrate = function() {
+    this._crateBackSprite = new Sprite(
+        ImageManager.loadBitmap('img/smith/','CraftingCrateBack')
+    );
+	this._crateBackSprite.x = 25;
+    this._crateBackSprite.y = Graphics.height - 25;
+    this._crateBackSprite.anchor.x = 0.0;
+    this._crateBackSprite.anchor.y = 1.0;
+
+    this.addChild(this._crateBackSprite);
+
+	// Put the Additive sprite in between the front and back of the crate so it can rise out of the crate!
+	this.createAdditiveSprite();
+
+	this._crateFrontSprite = new Sprite(
+        ImageManager.loadBitmap('img/smith/','CraftingCrateFront')
+    );
+	this._crateFrontSprite.x = 25;
+    this._crateFrontSprite.y = Graphics.height - 25;
+    this._crateFrontSprite.anchor.x = 0.0;
+    this._crateFrontSprite.anchor.y = 1.0;
+
+    this.addChild(this._crateFrontSprite);
+};
+
 SmithCraftingScene.prototype.createCraftedItemSprite = function() {
     this._craftedItemSprite = new Sprite_CraftedItem();
     this.addChild(this._craftedItemSprite);
+};
+
+SmithCraftingScene.prototype.createAdditiveSprite = function() {
+    this._additiveSprite = new Sprite_CraftingAdditive();
+    this.addChild(this._additiveSprite);
 };
 
 SmithCraftingScene.prototype.createHeatGauge = function() {
@@ -194,23 +238,19 @@ SmithCraftingScene.prototype.adjustBackground = function() {
 };
 
 SmithCraftingScene.prototype.createCommandWindow = function() {
-    const rect = this.commandWindowRect();
-    const commandWindow = new Window_SmithyCommand(rect);
+    const commandWindow = new Window_SmithyCommand();
     this.addWindow(commandWindow);
     this._commandWindow = commandWindow;
 };
 
-SmithCraftingScene.prototype.commandWindowRect = function() {
-    const ww = 192;
-    const wh = 157;
-    const wx = Graphics.boxWidth - ww - 10;
-    const wy = Graphics.boxHeight - wh - 10;
-    return new Rectangle(wx, wy, ww, wh);
+SmithCraftingScene.prototype.createAdditiveWindow = function() {
+    const additiveWindow = new Window_AdditiveSelector();
+    this.addWindow(additiveWindow);
+    this._additiveWindow = additiveWindow;
 };
 
 SmithCraftingScene.prototype.createResultsWindow = function() {
     const resultsWindow = new Window_SmithyResults();
-    this.addWindow(resultsWindow);
     this._resultsWindow = resultsWindow;
 };
 
@@ -221,7 +261,14 @@ SmithCraftingScene.prototype.openCommandWindow = function() {
 	this._commandWindow.open();
 }
 
+SmithCraftingScene.prototype.openAdditiveSelector = function() {
+	this._additiveWindow.show();
+	this._additiveWindow.activate();
+	this._additiveWindow.open();
+}
+
 SmithCraftingScene.prototype.openResultsWindow = function() {
+	this.addWindow(this._resultsWindow);
 	this._resultsWindow.show();
 }
 
@@ -630,6 +677,131 @@ Sprite_CraftedItem.prototype.updateBlendColor = function () {
 }
 
 //=============================================================================
+// Sprite_CraftingAdditive
+//=============================================================================
+function Sprite_CraftingAdditive() {
+    this.initialize.apply(this, arguments);
+}
+Sprite_CraftingAdditive.prototype = Object.create(Sprite.prototype);
+Sprite_CraftingAdditive.prototype.constructor = Sprite_CraftingAdditive;
+
+Sprite_CraftingAdditive.prototype.initialize = function () {
+	this._bitmap = new Bitmap(75, 75);
+	this._additive = null;
+	Sprite.prototype.initialize.call(this, this._bitmap);
+	this.anchor.x = 0.5;
+    this.anchor.y = 0.5;
+	this.contentsOpacity = 255;
+	this.opacity = 255;
+	this._location = 'crate';
+	this._xOffset = 0;
+	this._yOffset = 0;
+	this._movementDuration = 45;
+	this._movementCountdown = 0;
+
+	// Pre-calculated positions to simplify animation.
+	this._positions = {
+		anvil: { x: Graphics.width / 2 + 10, y: Graphics.height / 2 - 30},
+		crate: { x: 126, y: Graphics.height - 120}
+	}
+
+	this.move(this._positions.crate.x, this._positions.crate.y);
+};
+
+Sprite_CraftingAdditive.prototype.update = function() {
+    this.updatePosition();
+	this.updateAssets();
+}
+
+Sprite_CraftingAdditive.prototype.updatePosition = function () {
+	// If we need to move, move!
+	if (this._movementCountdown > 0) {
+		this._movementCountdown -= 1;
+
+		const rate = this._movementCountdown / this._movementDuration;
+		const targetPos = this._positions[this._location];
+		const newX = targetPos.x + this._xOffset * rate;
+		const newY = targetPos.y + this._yOffset * rate;
+		this.move(newX, newY);
+
+		if (this._movementCountdown === 0) {
+			// TODO: Trigger sound effects, animations, etc. for the final destination.
+			if (this._location === 'anvil') {
+				// Got to the anvil, so the additive is no longer pending.
+				TIOK.SmithCraftingUI.pendingAdditive = null;
+			}
+		}
+	}
+
+	// If we're changing locations, set up the movement animation.
+	const newAdditive = TIOK.SmithCraftingUI.pendingAdditive;
+	if (newAdditive !== this._additive) {
+		if (newAdditive) {
+			console.log('Initializing additive animation');
+			// Calculate the xOffset for animating motion between the old spot and the new one.
+			const oldPos = this._positions.crate;
+			const newPos = this._positions.anvil;
+			this._xOffset = oldPos.x - newPos.x;
+			this._yOffset = oldPos.y - newPos.y;
+			// And declare that we are in the new location (or at least moving toward it).
+			this._location = 'anvil';
+			this._movementCountdown = this._movementDuration;
+		} else {
+			// Hide the additive inside the crate.
+			this._movementCountdown = 0;
+			this._location = 'crate';
+		}
+	}
+};
+
+Sprite_CraftingAdditive.prototype.updateAssets = function () {
+	const newAdditive = TIOK.SmithCraftingUI.pendingAdditive;
+	if (newAdditive !== this._additive) {
+		this._additive = newAdditive;
+		if (newAdditive) {
+			this.numLoadedBitmaps = 0;
+			this._backgroundBitmap = ImageManager.loadBitmap('img/smith/additives/', `Additive${this._additive.image}Background`);
+			this._backgroundBitmap.addLoadListener(this._onSubBitmapLoad.bind(this));
+			this._foregroundBitmap = ImageManager.loadBitmap('img/smith/additives/', `Additive${this._additive.image}Foreground`);
+			this._foregroundBitmap.addLoadListener(this._onSubBitmapLoad.bind(this));
+			this._outlineBitmap = ImageManager.loadBitmap('img/smith/additives/', `Additive${this._additive.image}Outline`);
+			this._outlineBitmap.addLoadListener(this._onSubBitmapLoad.bind(this));
+		} else {
+			this.redraw();
+		}
+	}
+};
+
+Sprite_CraftingAdditive.prototype._onSubBitmapLoad = function(bitmapLoaded) {
+	this.numLoadedBitmaps += 1;
+    if (this.numLoadedBitmaps >= 3) {
+		this.redraw();
+	}
+};
+
+
+Sprite_CraftingAdditive.prototype.redraw = function () {
+	const b = this._bitmap;
+	b.clear();
+
+	if (this._additive) {
+		b.blt(this._backgroundBitmap, 0, 0, this._backgroundBitmap.width, this._backgroundBitmap.height, 0, 0);
+		b.blt(this._foregroundBitmap, 0, 0, this._foregroundBitmap.width, this._foregroundBitmap.height, 0, 0);
+		b.blt(this._outlineBitmap, 0, 0, this._outlineBitmap.width, this._outlineBitmap.height, 0, 0);
+	}
+
+	this.updateBlendColor();
+};
+
+Sprite_CraftingAdditive.prototype.updateBlendColor = function () {
+	// TODO: Do I need to make foreground and background into separate sprites so that I can colorize them individually?
+
+	// const oreColor = this._ore.color;
+	// oreColor.push(128); // Alpha
+	// this.setBlendColor(oreColor);
+}
+
+//=============================================================================
 // Window_SmithyCommand
 //=============================================================================
 function Window_SmithyCommand() {
@@ -638,14 +810,20 @@ function Window_SmithyCommand() {
 Window_SmithyCommand.prototype = Object.create(Window_Command.prototype);
 Window_SmithyCommand.prototype.constructor = Window_SmithyCommand;
 
-Window_SmithyCommand.prototype.initialize = function(rect) {
-    Window_Command.prototype.initialize.call(this, rect);
+Window_SmithyCommand.prototype.initialize = function() {
+	const ww = 192;
+    const wh = 200;
+    const wx = Graphics.boxWidth - ww - 10;
+    const wy = Graphics.boxHeight - wh - 10;
+
+    Window_Command.prototype.initialize.call(this, new Rectangle(wx, wy, ww, wh));
     this.openness = 0;
     this.deactivate();
 
-	this.setHandler("Hammer", this.onHammer.bind(this));
-	this.setHandler("Heat Up", this.onHeatUp.bind(this));
-	this.setHandler("Polish", this.onPolish.bind(this));
+	this.setHandler('Hammer', this.onHammer.bind(this));
+	this.setHandler('Heat Up', this.onHeatUp.bind(this));
+	this.setHandler('Polish', this.onPolish.bind(this));
+	this.setHandler('Additives', this.onAdditives.bind(this));
 };
 
 Window_SmithyCommand.prototype.makeCommandList = function() {
@@ -654,6 +832,7 @@ Window_SmithyCommand.prototype.makeCommandList = function() {
     this.addCommand('Hammer', 'Hammer');
     this.addCommand('Heat Up', 'Heat Up', TIOK.SmithCraftingUI.currentLocation !== 'furnace');
 	this.addCommand(polishText, 'Polish', TIOK.SmithCraftingUI.currentLocation !== 'grindstone');
+	this.addCommand('Additives', 'Additives', TIOK.SmithCraftingUI.additives.length < pattern.maxAdditives || TIOK.SmithCraftingUI.flux == null);
 };
 
 Window_SmithyCommand.prototype.setup = function() {
@@ -672,10 +851,6 @@ Window_SmithyCommand.prototype.onHammer = function() {
 		// Already at anvil, so queue up the hammer event.
 		TIOK.SmithCraftingUI.hammerPending = true;
 	}
-	// TODO: Animate hammer strike.
-	// TODO: Play hammer sound.
-	// TODO: Add to shape, based on temperature.
-	// TODO: If item is complete, finish the crafting session.
 }
 
 Window_SmithyCommand.prototype.onHeatUp = function() {
@@ -695,6 +870,11 @@ Window_SmithyCommand.prototype.onPolish = function() {
 	// TODO: Animate wheel spinning?
 }
 
+Window_SmithyCommand.prototype.onAdditives = function() {
+	TIOK.SmithCraftingUI._scene.openAdditiveSelector();
+	// TODO: Maybe show something to indicate that the Command window is inactive?  Arrow pointing over?
+}
+
 Window_SmithyCommand.prototype.finalizeAction = function() {
 	// Reset countdown until user's next action.
 	// This is modified by the player's speed, so higher speed makes crafting faster too!
@@ -703,6 +883,131 @@ Window_SmithyCommand.prototype.finalizeAction = function() {
 	// Hide the menu until the user can act.
 	this.close();
 }
+
+//=============================================================================
+// Window_AdditiveSelector
+//=============================================================================
+function Window_AdditiveSelector() {
+    this.initialize(...arguments);
+}
+Window_AdditiveSelector.prototype = Object.create(Window_ItemList.prototype);
+Window_AdditiveSelector.prototype.constructor = Window_AdditiveSelector;
+
+Window_AdditiveSelector.prototype.initialize = function() {
+	const ww = 500;
+    const wh = 400;
+    const wx = 10;
+    const wy = Graphics.boxHeight - wh - 10;
+    Window_ItemList.prototype.initialize.call(this, new Rectangle(wx, wy, ww, wh));
+
+	this.openness = 0;
+    this.deactivate();
+
+	this.createCancelButton();
+	this.setHandler("ok", this.onOk.bind(this));
+	this.setHandler("cancel", this.onCancel.bind(this));
+};
+
+Window_AdditiveSelector.prototype.onCancel = function() {
+    this.close();
+	this.deactivate()
+	TIOK.SmithCraftingUI._scene._commandWindow.activate();
+};
+
+Window_AdditiveSelector.prototype.onOk = function() {
+	const item = this.item();
+	const itemId = item ? item.id : 0;
+	const additive = TIOK.getAdditiveById(itemId);
+	console.log('AdditiveSelected', additive);
+	if (additive) {
+		if (additive.family === 'flux') {
+			TIOK.SmithCraftingUI.flux = additive;
+		} else {
+			TIOK.SmithCraftingUI.additives.push(additive);
+		}
+		TIOK.SmithCraftingUI.pendingAdditive = additive;
+	}
+    this.close();
+	this.deactivate();
+	TIOK.SmithCraftingUI._scene._commandWindow.finalizeAction();
+};
+
+Window_AdditiveSelector.prototype.maxCols = function() {
+    return 1;
+};
+
+Window_AdditiveSelector.prototype.includes = function(item) {
+	// Determines what items are shown (though they may be disabled).
+	const isBasicItem = DataManager.isItem(item) && item.itypeId === 1;
+	if (!isBasicItem) {
+		return false;
+	}
+
+	const additive = TIOK.getAdditiveById(item.id);
+	if (!additive) {
+		return false;
+	}
+
+	return true;
+};
+
+Window_AdditiveSelector.prototype.isEnabled = function(item) {
+	const additive = TIOK.getAdditiveById(item.id);
+    // Can only select an additive you are skilled enough to use.
+	if (!additive || additive.minSkill > TIOK.getBlacksmithingSkill()) {
+		return false;
+	}
+
+	if (additive.family === 'flux') {
+		// Flux is valid only if no flux has been selected yet.
+		return TIOK.SmithCraftingUI.flux === null;
+	} else {
+		// Other additives are valid if there is an additive slot free for the selected pattern.  Yes, you can use the same additive twice.
+		const pattern = TIOK.getSelectedPattern();
+		if (!pattern) {
+			return false;
+		}
+		return TIOK.SmithCraftingUI.additives.length < pattern.maxAdditives;
+	}
+};
+
+Window_AdditiveSelector.prototype.drawItem = function(index) {
+    const item = this.itemAt(index);
+    if (item) {
+        const rect = this.itemLineRect(index);
+        this.changePaintOpacity(this.isEnabled(item));
+        this.drawItemName(item, rect.x, rect.y, rect.width);
+		this.drawItemTier(item, rect);
+		// TODO: Draw tier and family?
+        this.changePaintOpacity(1);
+    }
+};
+
+Window_AdditiveSelector.prototype.drawItemTier = function(item, rect) {
+	const additive = TIOK.getAdditiveById(item.id);
+	if (additive) {
+		this.drawText(additive.rank, rect.x + rect.width - 30, rect.y, 30);
+	}
+};
+
+Window_AdditiveSelector.prototype.createCancelButton = function() {
+    if (ConfigManager.touchUI) {
+        this._cancelButton = new Sprite_Button("cancel");
+        this._cancelButton.visible = false;
+		this._cancelButton.x = this.width - this._cancelButton.width;
+		this._cancelButton.y = -8 - this._cancelButton.height;
+        this.addChild(this._cancelButton);
+    }
+};
+
+Window_AdditiveSelector.prototype.show = function() {
+	this.refresh();
+    this.scrollTo(0, 0);
+	this.forceSelect(0);
+    this.activate();
+	this.open();
+	this._cancelButton.visible = true;
+};
 
 //=============================================================================
 // Window_SmithyResults

@@ -734,6 +734,7 @@ DataManager.createGameObjects = function() {
 			inAdditives = true;
 		}
 	}
+	TIOK.SmithItemGenerator.additives = additives;
 	console.log('Additives:', additives);
 
 	TIOK.SmithItemGenerator.firstGeneratedArmorIndex = $dataArmors.find((armor) => {
@@ -817,7 +818,7 @@ function createItem(index, pattern, ore, oreRank, familyA, familyARank, familyB,
 		return;
 	}
 
-	const newItem = JSON.parse(JSON.stringify(pattern.templateItem));
+	let newItem = JSON.parse(JSON.stringify(pattern.templateItem));
 
 	newItem.id = index;
 
@@ -1011,6 +1012,7 @@ function parseAdditive(item) {
 		successRate: +(notes.find((note) => { return note.startsWith('SuccessRate:')}).substr(12)),
 		rank: notes.find((note) => { return note.startsWith('Rank:')}).substr(5),
 		family: notes.find((note) => { return note.startsWith('Family:')}).substr(7),
+		image: notes.find((note) => { return note.startsWith('Image:')}).substr(6),
 	};
 
 	return additive;
