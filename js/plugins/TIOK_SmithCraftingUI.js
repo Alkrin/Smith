@@ -71,8 +71,10 @@ console.warn('ZZZ LOADING TIOK_SmithCraftingUI');
 //=============================================================================
 
 PluginManager.registerCommand('TIOK_SmithCraftingUI', 'showCraftingUI' , function(args) {
-	// TODO: Add any transition animations.
-	SceneManager.push(SmithCraftingScene);
+	SceneManager._scene.startFadeOut(30);
+	setTimeout(() => {
+		SceneManager.push(SmithCraftingScene);
+	}, 500);
 
 	// Reset crafting state.
 	TIOK.SmithCraftingUI.currentShape = 0;
@@ -120,6 +122,8 @@ SmithCraftingScene.prototype.create = function() {
 	this.createShapeGauge();
 	this.createPolishGauge();
 
+	this.createTimer();
+
 	this.createWindowLayer();
 	this.createCommandWindow();
 	this.createAdditiveWindow();
@@ -137,6 +141,8 @@ SmithCraftingScene.prototype.start = function() {
     Scene_Base.prototype.start.call(this);
 	this.adjustBackground();
     this.startFadeIn(24, false);
+
+	this._running = true;
 };
 
 SmithCraftingScene.prototype.createBackground = function() {
@@ -237,6 +243,11 @@ SmithCraftingScene.prototype.adjustBackground = function() {
     this.centerSprite(this._backSprite);
 };
 
+SmithCraftingScene.prototype.createTimer = function() {
+    this._timer = TIOK.Timer.create();
+	this.addChild(this._timer);
+};
+
 SmithCraftingScene.prototype.createCommandWindow = function() {
     const commandWindow = new Window_SmithyCommand();
     this.addWindow(commandWindow);
@@ -269,11 +280,21 @@ SmithCraftingScene.prototype.openAdditiveSelector = function() {
 
 SmithCraftingScene.prototype.openResultsWindow = function() {
 	this.addWindow(this._resultsWindow);
+	this._timer.stop();
+	this._commandWindow.close();
+	this._running = false;
+
+	this._resultsWindow.setup();
 	this._resultsWindow.show();
 }
 
 SmithCraftingScene.prototype.update = function() {
 	Scene_Base.prototype.update.call(this);
+
+	// Stop with all the updates once crafting is complete.
+	if (!this._running) {
+		return;
+	}
 
 	// Player turn countdown.
 	if (TIOK.SmithCraftingUI.turnCountdown >= 0) {
@@ -281,6 +302,8 @@ SmithCraftingScene.prototype.update = function() {
 
 		if (TIOK.SmithCraftingUI.turnCountdown < 0) {
 			this.openCommandWindow();
+			// A little redundant to do this each time
+			this._timer.start();
 		}
 	}
 
@@ -1021,6 +1044,25 @@ Window_SmithyResults.prototype.constructor = Window_SmithyResults;
 Window_SmithyResults.prototype.initialize = function(rect) {
     Window_Base.prototype.initialize.call(this, new Rectangle(50, 50, 500, 300));
 	this.opacity = 0;
+
+	const button = new Sprite_Button('ok');
+	button.setClickHandler(this.onButtonOk.bind(this));
+	button.move(this.width - button.width, this.height + 5);
+    this.addChild(button);
+};
+
+Window_SmithyResults.prototype.onButtonOk = function() {
+    this.processOk();
+};
+
+Window_SmithyResults.prototype.processOk = function() {
+    this.close();
+
+	TIOK.SmithCraftingUI._scene.startFadeOut(30);
+	setTimeout(() => {
+		SceneManager.pop();
+		SceneManager._nextScene.startFadeIn(30);
+	}, 500);
 };
 
 Window_SmithyResults.prototype.setup = function() {

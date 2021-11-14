@@ -8,14 +8,6 @@
 
 @author TIOK
 
-@command forceNextItemSelectPositionBottom
-@text ForceNextItemSelectPositionBottom
-@ desc 'Forces the next ItemSelect command to display its window at the bottom of the screen.'
-
-@command forceNextItemSelectMandatory
-@text ForceNextItemSelectMandatory
-@ desc 'Forces the next ItemSelect window to display with no cancel button.'
-
 @help 
 ============================================================================
  Terms of Use
