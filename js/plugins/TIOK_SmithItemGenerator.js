@@ -966,6 +966,7 @@ function parsePattern(item) {
 		shape: +(notes.find((note) => { return note.startsWith('Shape:')}).substr(6)),
 		polish: +(notes.find((note) => { return note.startsWith('Polish:')}).substr(7)),
 		image: notes.find((note) => { return note.startsWith('Image:')}).substr(6),
+		par: +(notes.find((note) => { return note.startsWith('Par:')}).substr(4)),
 		additiveMods: {},
 	};
 

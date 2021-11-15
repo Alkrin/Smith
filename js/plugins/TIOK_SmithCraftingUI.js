@@ -245,6 +245,8 @@ SmithCraftingScene.prototype.adjustBackground = function() {
 
 SmithCraftingScene.prototype.createTimer = function() {
     this._timer = TIOK.Timer.create();
+	this._timer.setWarningTime(this._pattern.par);
+	this._timer.setFailureTime(this._pattern.par * 1.5);
 	this.addChild(this._timer);
 };
 

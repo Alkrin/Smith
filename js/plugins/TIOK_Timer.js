@@ -64,16 +64,26 @@ function Sprite_Timer() {
 Sprite_Timer.prototype = Object.create(Sprite.prototype);
 Sprite_Timer.prototype.constructor = Sprite_Timer;
 
-Sprite_Timer.prototype.initialize = function () {
+Sprite_Timer.prototype.initialize = function() {
 	this._bitmap = new Bitmap(150, 30);
 	Sprite.prototype.initialize.call(this, this._bitmap);
 	this.contentsOpacity = 255;
 	this.opacity = 255;
+	this._warningTime = 9999999;
+	this._failureTime = 9999999;
 
 	this.reset();
 
 	this.move(Graphics.width - 20 - this._bitmap.width, 20);
 };
+
+Sprite_Timer.prototype.setWarningTime = function(seconds)  {
+	this._warningTime = seconds;
+}
+
+Sprite_Timer.prototype.setFailureTime = function(seconds)  {
+	this._failureTime = seconds;
+}
 
 Sprite_Timer.prototype.update = function() {
     this.updateClock();
@@ -127,7 +137,13 @@ Sprite_Timer.prototype.drawClock = function() {
 
 	// Clock text.
 	b.fontSize = 28;
-	b.textColor = '#ffffff';
+	if (this._displayedValue < this._warningTime) {
+		b.textColor = '#ffffff';
+	} else if (this._displayedValue < this._failureTime) {
+		b.textColor = '#ffff00';
+	} else {
+		b.textColor = '#ff0000';
+	}
 	b.drawText(text, 0, 0, b.width, b.height, 'right');
 
 	// Debug border.
