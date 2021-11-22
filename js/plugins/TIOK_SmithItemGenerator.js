@@ -6,20 +6,6 @@
 
 @plugindesc v1.0 Generates items into the MZ database, so you don't have to manually input all ingredient and quality permutations.
 
-@param Run Database Validation
-@desc Validates Note tags for Patterns, Ores, and Additives.  Should be turned off for release.
-@type boolean
-@on Yes
-@off No
-@default false
-
-@param Write Permutations to Database
-@desc Generates all item permutations and saves them to the Database.  Should be turned off for release.
-@type boolean
-@on Yes
-@off No
-@default false
-
 @author TIOK
 
 @help 
@@ -46,18 +32,6 @@ var TIOK = TIOK || {};
 TIOK.SmithItemGenerator = TIOK.SmithItemGenerator || {};
 
 //=============================================================================
-// Plugin Parameters
-//=============================================================================
-// We use this to simplify access to the params in later code.  Not strictly necessary.
-var parameters = PluginManager.parameters('TIOK_SmithItemGenerator');
-TIOK.SmithItemGenerator.Params = {
-	validateNotes: parameters['Run Database Validation'] === 'true',
-	writeToDB: parameters['Write Permutations to Database'] === 'true',
-};
-
-var params = TIOK.SmithItemGenerator.Params;
-
-//=============================================================================
 // Plugin Dependencies
 //=============================================================================
 if (!true) {
@@ -74,27 +48,6 @@ if (!true) {
 'use strict';
 
 console.warn('ZZZ LOADING TIOK_SmithItemGenerator');
-
-// This one allows us to actually overwrite the appropriate database files.
-// Note that you should restart RMMZ after running this script to avoid getting overwritten.
-StorageManager.saveDataFile = function(src, json) {
-    if (this.isLocalMode()) {
-        var data = JSON.stringify(json);
-        var fs = require('fs');
-        var path = require('path');
-        var base = path.dirname(process.mainModule.filename);
-        //
-        var dirPath = path.join(base, 'data/');
-        var filePath = dirPath + src + ".json";
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath);
-        }
-        fs.writeFileSync(filePath, data);
-    } else {
-        // This section isn't complete
-        console.log("saveDataFile: Not local");
-    }
-};
 
 // The ids of the various additive families.
 // Each additive family has a unique effect.
@@ -124,12 +77,12 @@ const AdditiveFamily = {
 			S: 'of the Troll God',
 		},
 		descriptions: {
-			E: 'Grants minor health regeneration.',
-			D: 'Grants lesser health regeneration.',
-			C: 'Grants health regeneration.',
-			B: 'Grants greater health regeneration.',
-			A: 'Grants major health regeneration.',
-			S: 'Grants massive health regeneration.',
+			E: 'Grants minor health regeneration (E).',
+			D: 'Grants lesser health regeneration (D).',
+			C: 'Grants health regeneration (C).',
+			B: 'Grants greater health regeneration (B).',
+			A: 'Grants major health regeneration (A).',
+			S: 'Grants massive health regeneration (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -176,12 +129,12 @@ const AdditiveFamily = {
 			S: 'of Death',
 		},
 		descriptions: {
-			E: 'Slightly sharper than average.',
-			D: 'Moderately sharper than average.',
-			C: 'Sharper than average.',
-			B: 'Much sharper than average.',
-			A: 'Incredibly sharp.',
-			S: 'Sharp enough to cut the wind.',
+			E: 'Slightly sharper than average (E).',
+			D: 'Moderately sharper than average (D).',
+			C: 'Sharper than average (C).',
+			B: 'Much sharper than average (B).',
+			A: 'Incredibly sharp (A).',
+			S: 'Sharp enough to cut the wind (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -219,12 +172,12 @@ const AdditiveFamily = {
 			S: 'of Olympus',
 		},
 		descriptions: {
-			E: 'Slightly harder than average.',
-			D: 'Moderately harder than average.',
-			C: 'Harder than average.',
-			B: 'Much harder than average.',
-			A: 'Incredibly hard.',
-			S: 'Diamonds couldn\'t scratch this.',
+			E: 'Slightly harder than average (E).',
+			D: 'Moderately harder than average (D).',
+			C: 'Harder than average (C).',
+			B: 'Much harder than average (B).',
+			A: 'Incredibly hard (A).',
+			S: 'Diamonds couldn\'t scratch this (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -262,12 +215,12 @@ const AdditiveFamily = {
 			S: 'of the Sun',
 		},
 		descriptions: {
-			E: 'Grants minor magic resistance.',
-			D: 'Grants lesser magic resistance.',
-			C: 'Grants magic resistance.',
-			B: 'Grants greater magic resistance.',
-			A: 'Grants major magic resistance.',
-			S: 'Magic itself fears this item.',
+			E: 'Grants minor magic resistance (E).',
+			D: 'Grants lesser magic resistance (D).',
+			C: 'Grants magic resistance (C).',
+			B: 'Grants greater magic resistance (B).',
+			A: 'Grants major magic resistance (A).',
+			S: 'Magic itself fears this item (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -305,12 +258,12 @@ const AdditiveFamily = {
 			S: 'of the Comet',
 		},
 		descriptions: {
-			E: 'Grants minor speed boost.',
-			D: 'Grants lesser speed boost.',
-			C: 'Grants speed boost.',
-			B: 'Grants greater speed boost.',
-			A: 'Grants major speed boost.',
-			S: 'Makes you fast as lightning.',
+			E: 'Grants minor speed boost (E).',
+			D: 'Grants lesser speed boost (D).',
+			C: 'Grants speed boost (C).',
+			B: 'Grants greater speed boost (B).',
+			A: 'Grants major speed boost (A).',
+			S: 'Makes you fast as lightning (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -348,12 +301,12 @@ const AdditiveFamily = {
 			S: 'of the Behemoth',
 		},
 		descriptions: {
-			E: 'Grants minor health boost.',
-			D: 'Grants lesser health boost.',
-			C: 'Grants health boost.',
-			B: 'Grants greater health boost.',
-			A: 'Grants major health boost.',
-			S: 'Grants overwhelming vitality.',
+			E: 'Grants minor health boost (E).',
+			D: 'Grants lesser health boost (D).',
+			C: 'Grants health boost (C).',
+			B: 'Grants greater health boost (B).',
+			A: 'Grants major health boost (A).',
+			S: 'Grants overwhelming vitality (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -391,12 +344,12 @@ const AdditiveFamily = {
 			S: 'of Kyn',
 		},
 		descriptions: {
-			E: 'Increases intellect slightly.',
-			D: 'Increases intellect moderately.',
-			C: 'Increases intellect.',
-			B: 'Increases intellect greatly.',
-			A: 'Increases intellect drastically.',
-			S: 'Expands the mind past mortal limits.',
+			E: 'Increases intellect slightly (E).',
+			D: 'Increases intellect moderately (D).',
+			C: 'Increases intellect (C).',
+			B: 'Increases intellect greatly (B).',
+			A: 'Increases intellect drastically (A).',
+			S: 'Expands the mind past mortal limits (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -434,12 +387,12 @@ const AdditiveFamily = {
 			S: 'of Hell',
 		},
 		descriptions: {
-			E: 'Mildly warm.',
-			D: 'Moderately hot.',
-			C: 'Hot to the touch.',
-			B: 'Very hot to the touch.',
-			A: 'Wildly hot to the touch.',
-			S: 'Contains the essence of fire.',
+			E: 'Mildly warm (E).',
+			D: 'Moderately hot (D).',
+			C: 'Hot to the touch (C).',
+			B: 'Very hot to the touch (B).',
+			A: 'Wildly hot to the touch (A).',
+			S: 'Contains the essence of fire (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -507,12 +460,12 @@ const AdditiveFamily = {
 			S: 'of Boreas',
 		},
 		descriptions: {
-			E: 'Cools the air around it.',
-			D: 'Chills the air around it.',
-			C: 'Glistens with frost.',
-			B: 'Studded with ice crystals.',
-			A: 'Encased in ice.',
-			S: 'Contains the essence of winter.',
+			E: 'Cools the air around it (E).',
+			D: 'Chills the air around it (D).',
+			C: 'Glistens with frost (C).',
+			B: 'Studded with ice crystals (B).',
+			A: 'Encased in ice (A).',
+			S: 'Contains the essence of winter (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -580,12 +533,12 @@ const AdditiveFamily = {
 			S: 'of the Aether',
 		},
 		descriptions: {
-			E: 'Makes sparks when struck.',
-			D: 'Makes your hair stand on end.',
-			C: 'Occasionally flashes with lightning.',
-			B: 'Every movement crashes like thunder.',
-			A: 'Bathed constantly in lightning.',
-			S: 'The god of the storms\' own.',
+			E: 'Makes sparks when struck (E).',
+			D: 'Makes your hair stand on end (D).',
+			C: 'Occasionally flashes with lightning (C).',
+			B: 'Every movement crashes like thunder (B).',
+			A: 'Bathed constantly in lightning (A).',
+			S: 'The god of the storms\' own (S).',
 		},
 		applyToItem: (item, rank, isArmor) => {
 			let power = 0;
@@ -641,6 +594,7 @@ const AdditiveFamily = {
 const AdditiveFamilyArray = Object.values(AdditiveFamily).sort((familyLeft, familyRight) => {
 	return familyLeft.index - familyRight.index;
 });
+TIOK.AdditiveFamilyArray = AdditiveFamilyArray;
 
 // Pattern Notes
 //  - MinSkill:<number>			Minimum Blacksmithing skill required to use this pattern.
@@ -662,14 +616,15 @@ const AdditiveFamilyArray = Object.values(AdditiveFamily).sort((familyLeft, fami
 //	- Rank:<rank>				E|D|C|B|A|S.  Determines the efficacy of the family's effect.
 //	- Family:<string>			Declares the "family" of this additive.  See the "AdditiveFamily" enum.  Referenced in AdditiveMod fields.
 
+let gameDataInitialized = false;
 var alias_DataManager_createGameObjects = DataManager.createGameObjects;
 DataManager.createGameObjects = function() {
    	alias_DataManager_createGameObjects.call(this, arguments);
 
-	// At this point we can guarantee that all database items have been loaded.
-   	console.log('$dataItems', $dataItems);
-	console.log('$dataArmors', $dataArmors);
-	console.log('$dataWeapons', $dataWeapons);
+	if (gameDataInitialized) {
+		return;
+	}
+	gameDataInitialized = true;
 
 	// Find all valid pattern items.
 	let patterns = [];
@@ -680,7 +635,7 @@ DataManager.createGameObjects = function() {
 			if (pattern.name === '--EndPatterns') {
 				break;
 			}
-			if (!params.validateNotes || patternIsValid(pattern)) {
+			if (patternIsValid(pattern)) {
 				patterns.push(parsePattern(pattern));
 			}
 		} else if (pattern.name === '--StartPatterns') {
@@ -707,7 +662,7 @@ DataManager.createGameObjects = function() {
 			if (ore.name === '--EndOres') {
 				break;
 			}
-			if (!params.validateNotes || oreIsValid(ore)) {
+			if (oreIsValid(ore)) {
 				const pOre = parseOre(ore);
 				ores[pOre.rank].push(pOre);
 			}
@@ -727,7 +682,7 @@ DataManager.createGameObjects = function() {
 			if (additive.name === '--EndAdditives') {
 				break;
 			}
-			if (!params.validateNotes || additiveIsValid(additive)) {
+			if (additiveIsValid(additive)) {
 				additives.push(parseAdditive(additive));
 			}
 		} else if (additive.name === '--StartAdditives') {
@@ -745,8 +700,6 @@ DataManager.createGameObjects = function() {
 		return weapon && weapon.name === '--StartGeneratedWeapons';
 	}).id + 1;
 
-	let nextArmorIndex = TIOK.SmithItemGenerator.firstGeneratedArmorIndex;
-	let nextWeaponIndex = TIOK.SmithItemGenerator.firstGeneratedWeaponIndex;
 	patterns.forEach((pattern) => {
 		pattern.isArmor = true;
 		// Find all template items (unobtainable item from which we can copy most fields to help generate the new items).
@@ -763,117 +716,8 @@ DataManager.createGameObjects = function() {
 			pattern.templateItem = templateItem;
 		}
 		pattern.isWeapon = !pattern.isArmor;
-
-		// Capture the first index of items generated for this pattern so we can index into them during crafting.
-		pattern.firstIndex = pattern.isArmor ? nextArmorIndex : nextWeaponIndex;
-
-		//Iterate all permutations.
-		getSupportedOres(pattern).forEach((ore) => {
-			// Ores are iterated from S rank on down to the minimum supported rank.
-			getRanksAtOrBelow(ore.rank).forEach((oreRank) => {
-				// Ranks are iterated from the base rank down to E.
-				if (pattern.maxAdditives === 0) {
-					// No additives allowed, so make the item now.
-					createItem(pattern.isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank);
-				} else {
-					AdditiveFamilyArray.forEach((familyA) => {
-						// Skip flux, as it doesn't modify items directly.
-						if (familyA.name === 'flux') {
-							return;
-						}
-						getRanksAtOrBelow('S').forEach((familyARank) => {
-							if (pattern.maxAdditives === 1) {
-								// Exactly one additive allowed, so make the item now.
-								createItem(pattern.isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank, familyA, familyARank);
-							} else {
-								AdditiveFamilyArray.forEach((familyB) => {
-									// Skip flux, as it doesn't modify items directly.
-									if (familyB.name === 'flux') {
-										return;
-									}
-									getRanksAtOrBelow('S').forEach((familyBRank) => {
-										// Exactly two additives allowed, so make the item now.
-										createItem(pattern.isArmor ? nextArmorIndex++ : nextWeaponIndex++, pattern, ore, oreRank, familyA, familyARank, familyB, familyBRank);
-									});
-								});							
-							}
-						});
-
-					});
-				}
-			});
-		});
 	});
-
-	if (params.writeToDB) {
-		// Save the database files with the new values.
-		StorageManager.saveDataFile('Armors', $dataArmors)
-		StorageManager.saveDataFile('Weapons', $dataWeapons)
-	}
 };
-
-function createItem(index, pattern, ore, oreRank, familyA, familyARank, familyB, familyBRank) {
-	// If we aren't updating the DB this launch, we will trust the DB as it currently stands.
-	if (!params.writeToDB) {
-		return;
-	}
-
-	let newItem = JSON.parse(JSON.stringify(pattern.templateItem));
-
-	newItem.id = index;
-
-	// Build the item name.
-	const oreName = ore.name.replace(' Ore','');
-	newItem.name = `${oreName} ${pattern.templateItem.name}`;
-	if (familyA) { // Add postfix.
-		const postfix = familyA.postfixes[familyARank];
-		newItem.name = `${newItem.name} ${postfix}`;
-	}
-	if (familyB) { // Add prefix.
-		const prefix = familyB.prefixes[familyBRank];
-		newItem.name = `${prefix} ${newItem.name}`;
-	}
-
-	// Update basic stats by oreRank delta.
-	const oreRankDelta = getRankDelta(pattern.oreRank, oreRank);
-	const oreRankMultiplier = getOreRankMultiplierForDelta(oreRankDelta);
-	for (let i = 0; i < newItem.params.length; ++i) {
-		newItem.params[i] = Math.floor(newItem.params[i] * oreRankMultiplier);
-	}
-
-	// Update price.
-	newItem.price = Math.floor(newItem.price * oreRankMultiplier);
-	if (oreRankDelta > 0) { // Better items get multiplier twice (caps out at 4x price for an item that is 2x as good.).
-		newItem.price = Math.floor(newItem.price * oreRankMultiplier);
-	}
-
-	// Update description.
-	newItem.description = `Rank ${oreRank}.`;
-	if (familyB) { // If there are 2 additives, describe the prefix first.
-		newItem.description = `${newItem.description} ${familyB.descriptions[familyBRank]}\n${familyA.descriptions[familyARank]}`;
-	} else if (familyA) {
-		newItem.description = `${newItem.description} ${familyA.descriptions[familyARank]}`;
-	}
-
-	// TODO: Are there any traits we want to multiply as well?  Crit? Evasion?
-
-	// Apply familyA by rank.
-	if (familyA) {
-		newItem = familyA.applyToItem(newItem, familyARank, pattern.isArmor);
-	}
-	
-	// Apply familyB by rank.
-	if (familyB) {
-		newItem = familyB.applyToItem(newItem, familyBRank, pattern.isArmor);
-	}
-
-	// Push the item into either $dataArmors or $dataWeapons.
-	if (pattern.isArmor) {
-		$dataArmors[index] = newItem;
-	} else {
-		$dataWeapons[index] = newItem;
-	}
-}
 
 function getRankDelta(originalRank, currentRank) {
 	const originalIndex = AllRanks.indexOf(originalRank);
@@ -899,58 +743,6 @@ function getOreRankMultiplierForDelta(rankDelta) {
 	];
 
 	return multipliers[deltaIndex];
-}
-
-function getSupportedOres(pattern) {
-	const ores = TIOK.SmithItemGenerator.ores;
-	// S-rank is always supported.
-	const supportedOres = [
-		...ores.S
-	];
-	if (pattern.oreRank === 'S') {
-		return supportedOres;
-	}
-
-	// A-rank?
-	ores.A.forEach((ore) => { supportedOres.push(ore) });
-	if (pattern.oreRank === 'A') {
-		return supportedOres;
-	}
-
-	// B-rank?
-	ores.B.forEach((ore) => { supportedOres.push(ore) });
-	if (pattern.oreRank === 'B') {
-		return supportedOres;
-	}
-
-	// C-rank?
-	ores.C.forEach((ore) => { supportedOres.push(ore) });
-	if (pattern.oreRank === 'C') {
-		return supportedOres;
-	}
-
-	// D-rank?
-	ores.D.forEach((ore) => { supportedOres.push(ore) });
-	if (pattern.oreRank === 'D') {
-		return supportedOres;
-	}
-
-	// E-rank?
-	ores.E.forEach((ore) => { supportedOres.push(ore) });
-	return supportedOres;
-}
-
-function getRanksAtOrBelow(highestRank) {
-	const possibleRanks = {
-		S: ['S','A','B','C','D','E'],
-		A: ['A','B','C','D','E'],
-		B: ['B','C','D','E'],
-		C: ['C','D','E'],
-		D: ['D','E'],
-		E: ['E'],
-	}
-
-	return possibleRanks[highestRank];
 }
 
 function parsePattern(item) {
@@ -1253,5 +1045,87 @@ function isRankString(str) {
 }
 
 const AllRanks = 'EDCBAS';
+
+TIOK.SmithItemGenerator.createItem = function(pattern, ore, oreRank, familyA, familyARank, familyB, familyBRank) {
+	console.log(`CreateItem(${pattern.name},${ore.name},${oreRank},${familyA},${familyARank},${familyB},${familyBRank})`);
+	let newItem = JSON.parse(JSON.stringify(pattern.templateItem));
+
+	// Build the item name.
+	const oreName = ore.name.replace(' Ore','');
+	newItem.name = `${oreName} ${pattern.templateItem.name}`;
+	if (familyA) { // Add postfix.
+		const postfix = familyA.postfixes[familyARank];
+		newItem.name = `${newItem.name} ${postfix}`;
+	}
+	if (familyB) { // Add prefix.
+		const prefix = familyB.prefixes[familyBRank];
+		newItem.name = `${prefix} ${newItem.name}`;
+	}
+
+	// Update basic stats by oreRank delta.
+	const oreRankDelta = getRankDelta(pattern.oreRank, oreRank);
+	const oreRankMultiplier = getOreRankMultiplierForDelta(oreRankDelta);
+	for (let i = 0; i < newItem.params.length; ++i) {
+		newItem.params[i] = Math.floor(newItem.params[i] * oreRankMultiplier);
+	}
+
+	// Update price.
+	newItem.price = Math.floor(newItem.price * oreRankMultiplier);
+	if (oreRankDelta > 0) { // Better items get multiplier twice (caps out at 4x price for an item that is 2x as good.).
+		newItem.price = Math.floor(newItem.price * oreRankMultiplier);
+	}
+
+	// Update description.
+	newItem.description = `Rank ${oreRank}.`;
+	if (familyB) { // If there are 2 additives, describe the prefix first.
+		newItem.description = `${newItem.description} ${familyB.descriptions[familyBRank]}\n${familyA.descriptions[familyARank]}`;
+	} else if (familyA) {
+		newItem.description = `${newItem.description} ${familyA.descriptions[familyARank]}`;
+	}
+
+	// TODO: Are there any traits we want to multiply as well?  Crit? Evasion?
+
+	// Apply familyA by rank.
+	if (familyA) {
+		newItem = familyA.applyToItem(newItem, familyARank, pattern.isArmor);
+	}
+	
+	// Apply familyB by rank.
+	if (familyB) {
+		newItem = familyB.applyToItem(newItem, familyBRank, pattern.isArmor);
+	}
+
+	// Push the item into either $dataArmors or $dataWeapons.
+	if (pattern.isArmor) {
+		const index = getFirstAvailableArmorIndex();
+		newItem.id = index;
+		$dataArmors[index] = newItem;
+	} else {
+		const index = getFirstAvailableWeaponIndex();
+		newItem.id = index;
+		$dataWeapons[index] = newItem;
+	}
+
+	console.log('Item Created', newItem);
+	return newItem;
+}
+
+function getFirstAvailableArmorIndex() {
+	let index = TIOK.SmithItemGenerator.firstGeneratedArmorIndex;
+	// Find the first index that is either empty or beyond the end of the array.
+	while (index < $dataArmors.length && $dataArmors[index].name.trim().length > 0) {
+		++index;
+	}
+	return index;
+}
+
+function getFirstAvailableWeaponIndex() {
+	let index = TIOK.SmithItemGenerator.firstGeneratedWeaponIndex;
+	// Find the first index that is either empty or beyond the end of the array.
+	while (index < $dataWeapons.length && $dataWeapons[index].name.trim().length > 0) {
+		++index;
+	}
+	return index;
+}
 
 })()}

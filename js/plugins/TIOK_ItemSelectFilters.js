@@ -135,7 +135,12 @@ Window_EventItem.prototype.includes = function(item) {
 	return true;
 };
 
+var _Window_EventItem_isEnabled = Window_EventItem.prototype.isEnabled;
 Window_EventItem.prototype.isEnabled = function(item) {
+	const enabledByDefault = _Window_EventItem_isEnabled(item);
+	if (!enabledByDefault) {
+		return false;
+	}
 	if (!item) {
 		return false;
 	}

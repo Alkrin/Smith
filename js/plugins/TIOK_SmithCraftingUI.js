@@ -1045,7 +1045,8 @@ Window_SmithyResults.prototype.constructor = Window_SmithyResults;
 
 Window_SmithyResults.prototype.initialize = function(rect) {
     Window_Base.prototype.initialize.call(this, new Rectangle(50, 50, 500, 300));
-	this.opacity = 0;
+	this.openness = 0;
+    this.deactivate();
 
 	const button = new Sprite_Button('ok');
 	button.setClickHandler(this.onButtonOk.bind(this));
@@ -1062,17 +1063,325 @@ Window_SmithyResults.prototype.processOk = function() {
 
 	TIOK.SmithCraftingUI._scene.startFadeOut(30);
 	setTimeout(() => {
+		// Unselect Pattern and Ore.
+		$gameVariables._data[7] = 0;
+		$gameVariables._data[8] = 0;
+
 		SceneManager.pop();
 		SceneManager._nextScene.startFadeIn(30);
 	}, 500);
 };
 
 Window_SmithyResults.prototype.setup = function() {
-    // TODO: Calculate result and render it.
+	this.calculateRatesAndRankings();
+	this.calculateOutput();
+	this.updateInventory();
+	this.grantXP();
+	this.redraw();
+}
+
+Window_SmithyResults.prototype.calculateRatesAndRankings = function() {
+	const pattern = TIOK.getSelectedPattern();
+	const ore = TIOK.getSelectedOre();
+
+	// Calculate actual success rate.
+	// Base rate.
+	let successRate = pattern.successRate;
+	// Blacksmithing skill.
+	successRate += TIOK.getBlacksmithingSkill();
+	// Ore modifier.
+	successRate += ore.successRate;
+	// Flux modifier.
+	if (TIOK.SmithCraftingUI.flux) {
+		successRate += TIOK.SmithCraftingUI.flux.successRate;
+	}
+	// Additive modifiers.
+	TIOK.SmithCraftingUI.additives.forEach((additive) => {
+		successRate += additive.successRate;
+	});
+
+
+	// Time ranking.
+	const timeRate = TIOK.SmithCraftingUI._scene._timer.getValue() / pattern.par;
+	let timeRank = 'F';
+	if (timeRate < 0.5) {
+		timeRank = 'S';
+		successRate += 5;
+	} else if (timeRate < 1) {
+		timeRank = 'A';
+	} else if (timeRate < 1.2) {
+		timeRank = 'B';
+		successRate -= 5;
+	} else if (timeRate < 1.3) {
+		timeRank = 'C';
+		successRate -= 10;
+	} else if (timeRate < 1.4) {
+		timeRank = 'D';
+		successRate -= 15;
+	} else if (timeRate < 1.5) {
+		timeRank = 'E';
+		successRate -= 20;
+	} else {
+		timeRank = 'F';
+		successRate -= 25;
+	}
+
+	// Sharpness ranking.
+	const polishDelta = Math.abs(TIOK.SmithCraftingUI.currentPolish - pattern.polish);
+	let polishRank = 'F';
+	if (polishDelta < 20) {
+		polishRank = 'S';
+		successRate += 5;
+	} else if (polishDelta < 60) {
+		polishRank = 'A';
+	} else if (polishDelta < 80) {
+		polishRank = 'B';
+		successRate -= 5;
+	} else if (polishDelta < 100) {
+		polishRank = 'C';
+		successRate -= 10;
+	} else if (polishDelta < 125) {
+		polishRank = 'D';
+		successRate -= 15;
+	} else if (polishDelta < 150) {
+		polishRank = 'E';
+		successRate -= 20;
+	} else {
+		polishRank = 'F';
+		successRate -= 25;
+	}
+
+	// Luck ranking.
+	const luck = successRate - Math.random() * 100;
+	let luckRank = 'F';
+	if (luck >= 50) {
+		luckRank = 'S';
+	} else if ( luck >= 0) {
+		luckRank = 'A';
+	} else if ( luck >= -10) {
+		luckRank = 'B';
+	} else if ( luck >= -20) {
+		luckRank = 'C';
+	} else if ( luck >= -30) {
+		luckRank = 'D';
+	} else if ( luck >= -40) {
+		luckRank = 'E';
+	} else {
+		luckRank = 'F';
+	}
+
+	this._successRate = successRate;
+	this._timeRank = timeRank;
+	this._polishRank = polishRank;
+	this._luckRank = luckRank;
+};
+
+Window_SmithyResults.prototype.calculateOutput = function () {
+	const pattern = TIOK.getSelectedPattern();
+	const ore = TIOK.getSelectedOre();
+
+	// Based on attempted recipe and LuckRank, calculate what the user got at the end.
+	// That means an item (or reclaimed ore on failure) and XP.
+	let xpRate = 1.0;
+	let ranksLost = 0;
+	switch(this._luckRank) {
+		case 'S': // Success, bonus XP.
+			xpRate = 1.5;
+			break;
+		case 'A': // Success, full XP.
+			xpRate = 1.0;
+			break;
+		case 'B': // Lose one rank.
+			xpRate = 0.8;
+			ranksLost = 1;
+			break;
+		case 'C': // Lose two ranks.
+			xpRate = 0.6;
+			ranksLost = 2;
+			break;
+		case 'D': // Lose three ranks.
+			xpRate = 0.4;
+			ranksLost = 3;
+			break;
+		case 'E': // Lose four ranks.
+			xpRate = 0.2;
+			ranksLost = 4;
+			break;
+		case 'F': // Lose five ranks.
+			xpRate = 0.1;
+			ranksLost = 5;
+			break;
+	}
+
+	this._xpEarned = this.getBaseXP() * xpRate;
+	console.log(`Exp Earned.  ${this.getBaseXP()}`)
+
+	const resultRank = reduceRank(ore.rank, ranksLost);
+	this._resultRank = resultRank;
+	
+	if (extendedRanks.indexOf(resultRank) >= extendedRanks.indexOf('F')) {
+		// If rank is F or lower, you don't get an item.
+		const oreReturnRate = 1.0;
+		switch(resultRank) {
+			case 'F':
+				oreReturnRate = 0.8;
+				break;
+			case 'G':
+				oreReturnRate = 0.6;
+				break;
+			case 'H':
+				oreReturnRate = 0.4;
+				break;
+			case 'I':
+				oreReturnRate = 0.2;
+				break;
+			case 'J':
+				oreReturnRate = 0.1;
+				break;
+		}
+		// You'll get at least one ore back, no matter how badly you did.
+		this._oreReturned = Math.max(Math.ceil(pattern.oreCount * oreReturnRate), 1);
+	} else {
+		// Any rank between S and E gives you an item.
+		let firstAdditiveFamily = null;
+		let firstAdditiveRank = null;
+		let secondAdditiveFamily = null;
+		let secondAdditiveRank = null;
+		if (TIOK.SmithCraftingUI.additives.length > 0) {
+			const firstAdditive = TIOK.SmithCraftingUI.additives[0];
+			firstAdditiveFamily = firstAdditive.family;
+			firstAdditiveRank = reduceRank(firstAdditive.rank, ranksLost);
+			let hasFirstAdditive = extendedRanks.indexOf(firstAdditiveRank) <= extendedRanks.indexOf('E');
+
+			if (TIOK.SmithCraftingUI.additives.length > 1) {
+				const secondAdditive = TIOK.SmithCraftingUI.additives[1];
+
+				if (hasFirstAdditive) {
+					secondAdditiveFamily = secondAdditive.family;
+					secondAdditiveRank = reduceRank(secondAdditive.rank, ranksLost);
+				} else {
+					firstAdditiveFamily = secondAdditive.family;
+					firstAdditiveRank = reduceRank(secondAdditive.rank, ranksLost);
+				}
+			}
+
+			hasFirstAdditive = firstAdditiveRank && extendedRanks.indexOf(firstAdditiveRank) <= extendedRanks.indexOf('E');
+			const hasSecondAdditive = secondAttiveRank && extendedRanks.indexOf(secondAdditiveRank) <= extendedRanks.indexOf('E');
+
+			if (!hasFirstAdditive) {
+				firstAdditiveFamily = null;
+				firstAdditiveRank = null;
+			}
+			if (!hasSecondAdditive) {
+				secondAdditiveFamily = null;
+				secondAdditiveRank = null;
+			}
+		}
+		this._itemCrafted = TIOK.SmithItemGenerator.createItem(pattern, ore, resultRank, firstAdditiveFamily, firstAdditiveRank, secondAdditiveFamily, secondAdditiveRank);
+	}
+};
+
+const baseCraftingXP = {
+	S: 500,
+	A: 400,
+	B: 300,
+	C: 200,
+	D: 100,
+	E: 50,
+	F: 25
+}
+Window_SmithyResults.prototype.getBaseXP = function () {
+	const pattern = TIOK.getSelectedPattern();
+
+	return baseCraftingXP[pattern.oreRank];
+};
+
+const extendedRanks = ['S','A','B','C','D','E','F','G','H','I','J'];
+const reduceRank = function(baseRank, reduction) {
+	const baseIndex = extendedRanks.indexOf(baseRank);
+	const finalIndex = baseIndex + reduction;
+	return extendedRanks[finalIndex];
+}
+
+Window_SmithyResults.prototype.updateInventory = function () {
+	// Take away used ore, flux, and additives.
+	$gameParty.loseItem($dataItems[TIOK.getSelectedOre().index], TIOK.getSelectedPattern().oreCount);
+	if (TIOK.SmithCraftingUI.flux) {
+		$gameParty.loseItem($dataItems[TIOK.SmithCraftingUI.flux.index], 1);
+	}
+	if (TIOK.SmithCraftingUI.additives.length > 0) {
+		$gameParty.loseItem($dataItems[TIOK.SmithCraftingUI.additives[0].index], 1);
+
+		if (TIOK.SmithCraftingUI.additives.length > 1) {
+			$gameParty.loseItem($dataItems[TIOK.SmithCraftingUI.additives[1].index], 1);
+		}
+	}
+	
+
+	// Grant the created item... or reclaimed ore as a consolation prize.
+	console.log('_itemCrafted', this._itemCrafted);
+	if (this._itemCrafted) {
+		console.log('Item was crafted.  Trying to grant.');
+		$gameParty.gainItem(this._itemCrafted, 1);
+	} else if (this._oreReturned) {
+		console.log('Item crafting failed.  Giving consolation prize.');
+		$gameParty.gainItem($dataItems[TIOK.getSelectedOre().index], this._oreReturned);
+	}
+};
+
+Window_SmithyResults.prototype.grantXP = function () {
+	// Give the player XP.  If they level up, the message for it will appear after they leave the Crafting scene.
+	$gameActors.actor(1).gainExp(this._xpEarned);
+};
+
+var _Game_Actor_displayLevelUp = Game_Actor.prototype.displayLevelUp;
+Game_Actor.prototype.displayLevelUp = function(newSkills) {
+	_Game_Actor_displayLevelUp.call(this, newSkills);
+
+	$gameParty.gainItem($dataItems[34], 1);
+    $gameMessage.add('Received \\C[2][Growth Crystal]\\C[0]!');
+};
+
+const rankColors = {
+	S: '#aa22ff',
+	A: '#00ff00',
+	B: '#33cc00',
+	C: '#669900',
+	D: '#996600',
+	E: '#cc3300',
+	F: '#ff0000',
+}
+
+Window_SmithyResults.prototype.redraw = function () {
+	const b = this.contents;
+	b.clear();
+
+	const pattern = TIOK.getSelectedPattern();
+	const polishText = pattern && pattern.isArmor ? 'Polish:' : 'Sharpness:';
+
+	b.fontSize = 28;
+	b.textColor = '#ffffff';
+	b.drawText('Performance', 0, 0, 200, 28, 'center');
+
+	b.gradientFillRect(0, 32, 200, 5, '#000000', '#000000', false);
+	b.gradientFillRect(1, 33, 198, 3, '#ffffff', '#ffffff', false);
+
+	b.fontSize = 24;
+	b.drawText('Time:', 15, 40, 115, 24, 'right');
+	b.drawText(polishText, 15, 65, 115, 24, 'right');
+	b.drawText('Luck:', 15, 90, 115, 24, 'right');
+
+	b.textColor = rankColors[this._timeRank];
+	b.drawText(this._timeRank, 150, 40, 250, 24, 'left');
+	b.textColor = rankColors[this._polishRank];
+	b.drawText(this._polishRank, 150, 65, 250, 24, 'left');
+	b.textColor = rankColors[this._luckRank];
+	b.drawText(this._luckRank, 150, 90, 250, 24, 'left');
 };
 
 Window_SmithyResults.prototype.show = function() {
-    this.opacity = 255;
+    this.activate();
+	this.open();
 };
 
 })()}
