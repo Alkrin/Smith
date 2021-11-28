@@ -135,6 +135,9 @@ SmithCraftingScene.prototype.precacheVariables = function () {
 	this._heat = TIOK.getFireHeat();
 	this._pattern = TIOK.getSelectedPattern();
 	this._ore = TIOK.getSelectedOre();
+
+	// Load this nice and early so it is ready before we need it.
+	this._ghostBitmap = ImageManager.loadFace('NPC_OldSmith');
 }
 
 SmithCraftingScene.prototype.start = function() {
@@ -685,11 +688,11 @@ Sprite_CraftedItem.prototype.redraw = function () {
 	b.clear();
 
 	if (this._shape === 'Ingot') {
-		b.blt(this._ingotBitmap, 0, 0, this._ingotBitmap.width, this._ingotBitmap.height, (b.width - this._ingotBitmap.width) / 2, (b.height - this._ingotBitmap.height) / 2)
+		b.blt(this._ingotBitmap, 0, 0, this._ingotBitmap.width, this._ingotBitmap.height, (b.width - this._ingotBitmap.width) / 2, (b.height - this._ingotBitmap.height) / 2);
 	} else if (this._shape === 'Partial') {
-		b.blt(this._partialBitmap, 0, 0, this._partialBitmap.width, this._partialBitmap.height, (b.width - this._partialBitmap.width) / 2, (b.height - this._partialBitmap.height) / 2)
+		b.blt(this._partialBitmap, 0, 0, this._partialBitmap.width, this._partialBitmap.height, (b.width - this._partialBitmap.width) / 2, (b.height - this._partialBitmap.height) / 2);
 	} else if (this._shape === 'Complete') {
-		b.blt(this._completeBitmap, 0, 0, this._completeBitmap.width, this._completeBitmap.height, (b.width - this._completeBitmap.width) / 2, (b.height - this._completeBitmap.height) / 2)
+		b.blt(this._completeBitmap, 0, 0, this._completeBitmap.width, this._completeBitmap.height, (b.width - this._completeBitmap.width) / 2, (b.height - this._completeBitmap.height) / 2);
 	}
 	this.updateBlendColor();
 };
@@ -762,7 +765,6 @@ Sprite_CraftingAdditive.prototype.updatePosition = function () {
 	const newAdditive = TIOK.SmithCraftingUI.pendingAdditive;
 	if (newAdditive !== this._additive) {
 		if (newAdditive) {
-			console.log('Initializing additive animation');
 			// Calculate the xOffset for animating motion between the old spot and the new one.
 			const oldPos = this._positions.crate;
 			const newPos = this._positions.anvil;
@@ -943,7 +945,6 @@ Window_AdditiveSelector.prototype.onOk = function() {
 	const item = this.item();
 	const itemId = item ? item.id : 0;
 	const additive = TIOK.getAdditiveById(itemId);
-	console.log('AdditiveSelected', additive);
 	if (additive) {
 		if (additive.family === 'flux') {
 			TIOK.SmithCraftingUI.flux = additive;
@@ -1044,7 +1045,11 @@ Window_SmithyResults.prototype = Object.create(Window_Base.prototype);
 Window_SmithyResults.prototype.constructor = Window_SmithyResults;
 
 Window_SmithyResults.prototype.initialize = function(rect) {
-    Window_Base.prototype.initialize.call(this, new Rectangle(50, 50, 500, 300));
+	const ww = 550;
+	const wh = 430;
+	const wx = (Graphics.width - ww) / 2;
+	const wy = (Graphics.height - wh) / 2;
+    Window_Base.prototype.initialize.call(this, new Rectangle(wx, wy, ww, wh));
 	this.openness = 0;
     this.deactivate();
 
@@ -1214,14 +1219,15 @@ Window_SmithyResults.prototype.calculateOutput = function () {
 	}
 
 	this._xpEarned = this.getBaseXP() * xpRate;
-	console.log(`Exp Earned.  ${this.getBaseXP()}`)
 
 	const resultRank = reduceRank(ore.rank, ranksLost);
 	this._resultRank = resultRank;
+
+	this._oreReturned = 0;
 	
 	if (extendedRanks.indexOf(resultRank) >= extendedRanks.indexOf('F')) {
 		// If rank is F or lower, you don't get an item.
-		const oreReturnRate = 1.0;
+		let oreReturnRate = 1.0;
 		switch(resultRank) {
 			case 'F':
 				oreReturnRate = 0.8;
@@ -1319,12 +1325,9 @@ Window_SmithyResults.prototype.updateInventory = function () {
 	
 
 	// Grant the created item... or reclaimed ore as a consolation prize.
-	console.log('_itemCrafted', this._itemCrafted);
 	if (this._itemCrafted) {
-		console.log('Item was crafted.  Trying to grant.');
 		$gameParty.gainItem(this._itemCrafted, 1);
 	} else if (this._oreReturned) {
-		console.log('Item crafting failed.  Giving consolation prize.');
 		$gameParty.gainItem($dataItems[TIOK.getSelectedOre().index], this._oreReturned);
 	}
 };
@@ -1359,24 +1362,200 @@ Window_SmithyResults.prototype.redraw = function () {
 	const pattern = TIOK.getSelectedPattern();
 	const polishText = pattern && pattern.isArmor ? 'Polish:' : 'Sharpness:';
 
+	const topOfItemSection = b.height - 100;
+	const commentSectionHeight = 160;
+	const topOfCommentSection = topOfItemSection - commentSectionHeight;
+
+	// Black separator lines.
+	b.gradientFillRect(0, 32, b.width, 5, '#000000', '#000000', false);
+	b.gradientFillRect(b.width - 100, 0, 5, 77, '#000000', '#000000', false);
+	b.gradientFillRect(b.width - 100, 72, 100, 5, '#000000', '#000000', false);
+	b.gradientFillRect(0, topOfCommentSection, b.width, 5, '#000000', '#000000', false);
+	b.gradientFillRect(0, topOfItemSection, b.width, 5, '#000000', '#000000', false);
+	// White separator lines.
+	b.gradientFillRect(1, 33, b.width - 2, 3, '#999999', '#999999', false);
+	b.gradientFillRect(b.width - 99, 1, 3, 75, '#999999', '#999999', false);
+	b.gradientFillRect(b.width - 99, 73, 98, 3, '#999999', '#999999', false);
+	b.gradientFillRect(1, topOfCommentSection + 1, b.width - 2, 3, '#999999', '#999999', false);
+	b.gradientFillRect(1, topOfItemSection + 1, b.width - 2, 3, '#999999', '#999999', false);
+
+	// Rankings
 	b.fontSize = 28;
 	b.textColor = '#ffffff';
-	b.drawText('Performance', 0, 0, 200, 28, 'center');
+	b.drawText('Performance', 0, 0, b.width - 100, 28, 'center');
 
-	b.gradientFillRect(0, 32, 200, 5, '#000000', '#000000', false);
-	b.gradientFillRect(1, 33, 198, 3, '#ffffff', '#ffffff', false);
-
-	b.fontSize = 24;
-	b.drawText('Time:', 15, 40, 115, 24, 'right');
-	b.drawText(polishText, 15, 65, 115, 24, 'right');
-	b.drawText('Luck:', 15, 90, 115, 24, 'right');
+	b.drawText('Time:', 0, 50, (b.width - 100) / 2 + 35, 24, 'right');
+	b.drawText(polishText, 0, 80, (b.width - 100) / 2 + 35, 24, 'right');
+	b.drawText('Luck:', 0, 110, (b.width - 100) / 2 + 35, 24, 'right');
 
 	b.textColor = rankColors[this._timeRank];
-	b.drawText(this._timeRank, 150, 40, 250, 24, 'left');
+	b.drawText(this._timeRank, (b.width - 100) / 2 + 45, 50, 50, 24, 'left');
 	b.textColor = rankColors[this._polishRank];
-	b.drawText(this._polishRank, 150, 65, 250, 24, 'left');
+	b.drawText(this._polishRank, (b.width - 100) / 2 + 45, 80, 50, 24, 'left');
 	b.textColor = rankColors[this._luckRank];
-	b.drawText(this._luckRank, 150, 90, 250, 24, 'left');
+	b.drawText(this._luckRank, (b.width - 100) / 2 + 45, 110, 50, 24, 'left');
+
+	// XP
+	b.fontSize = 28;
+	b.textColor = '#ffffff';
+	b.drawText('XP', b.width - 100, 0, 100, 28, 'center');
+	b.drawText(this._xpEarned.toString(), b.width - 100, 40, 100, 28, 'center');
+
+	// Comments from the Blacksmith's ghost!
+	const ghostFace = TIOK.SmithCraftingUI._scene._ghostBitmap;
+	b.blt(ghostFace, 0, 0, ImageManager.faceWidth, ImageManager.faceHeight, 0, topOfCommentSection + 10);
+	b.fontSize = 28;
+	b.textColor = '#ffffff';
+	const commentLines = this.getComment();
+	const commentX = ImageManager.faceWidth + 10;
+	const maxCommentWidth = b.width - commentX;
+	const commentLineSpacing = 4;
+	const commentLineHeight = b.fontSize + commentLineSpacing;
+	const commentHeight = commentLineHeight * commentLines.length - commentLineSpacing;
+	const commentTop = topOfCommentSection + 10 + (commentSectionHeight - 15 - commentHeight) / 2;
+	for (let li = 0; li < commentLines.length; ++li) {
+		b.drawText((li === 0 ? '"' : '') + commentLines[li] + (li === commentLines.length - 1 ? '"' : ''), 
+		           commentX, commentTop + commentLineHeight * li, maxCommentWidth, b.fontSize, 'center');
+	}
+
+	// Output (item / ore)
+	b.fontSize = 28;
+	b.textColor = '#ffffff';
+	if (this._itemCrafted) {
+		const descLines = this._itemCrafted.description.split('\n');
+		const topInset = descLines.length > 1 ? 0 : 15;
+		b.drawText(this._itemCrafted.name, 0, topOfItemSection + 10 + topInset, b.width, 28, 'center');
+		b.fontSize = 24
+		b.drawText(descLines[0], 0, topOfItemSection + 43 + topInset, b.width, 24, 'center');
+		if (descLines.length > 1) {
+			b.drawText(descLines[1], 0, topOfItemSection + 71, b.width, 24, 'center');
+		}
+	} else {
+		b.textColor = '#ff7777';
+		b.drawText('Crafting Failed!', 0, topOfItemSection + 10, b.width, 28, 'center');
+		b.textColor = '#ffdddd';
+		b.drawText(`You were able to retrieve ${this._oreReturned} ore.`, 0, topOfItemSection + 43, b.width, 28, 'center');
+		b.drawText('Better luck next time!', 0, topOfItemSection + 71, b.width, 28, 'center');
+	}
+};
+
+const goodComments = [
+	['Good job.', 'You actually made what you were', 'trying to make.'],
+	['I like it.', 'You finally got the edges right.'],
+	['There\'s nothing like the', 'smell of a hot forge.'],
+	['If I still had hands,', 'I might applaud.'],
+	['Well done!', 'Now do it a thousand more times.'],
+	['After you save the world,', 'you might actually make', 'a decent blacksmith.'],
+	['Mind if I say that', 'I made this one?'],
+	['Hang that on the wall.', 'It\'s too pretty to use.'],
+	['I might actually be willing','to trust my life to that one.'],
+	['I am a GREAT teacher,', 'arent I?'],
+	['Do tell people I', 'taught you everything', 'that you know.'],
+	['A general would be proud', 'to wield that one.'],
+	['Spectacular!', 'Look at how it shines.'],
+	['That looks like dragon-slaying', 'gear to me!'],
+	['Almost as good as I', 'could have done.'],
+	['You could make a good', 'living like this.'],
+	['I\'d hire you.'],
+	['I\'d pay for that.'],
+	['Clever trick you did', 'with the hammer there.'],
+	['I wish I had made one', 'that nice before I died.'],
+	['I wouldn\'t have thought it possible.', 'You might have surpassed me.', 'Barely.', 'Once.'],
+	['You made something impressive today.'],
+	['A fine piece of work,','but don\'t let it go to your head.'],
+	['I admit it,', 'you\'re good at this.'],
+	['Have you done this before?'],
+	['Practice more like that', 'and you might reach perfection.'],
+	['Congratulations!', 'Your countless failures', 'managed to teach you something.'],
+	['I could have used an apprentice', 'like you when I was alive.'],
+];
+const okayComments = [
+	['Not bad.', 'I mean, not good either.'],
+	['Last time I made one of those,', 'it was way better.'],
+	['Maybe you could try', 'sharpening it next time?'],
+	['Your heat control could', 'use some work.'],
+	['Heat first, THEN hammer.', 'Maybe polish it a bit too.'],
+	['I guess it\'s better than', 'being stabbed in the face.', 'Maybe.'],
+	['At least it\'s shiny?'],
+	['Try hitting it with your head','next time.  It might work better.'],
+	['You\'re obviously not a dwarf.'],
+	['Huh. You actually pulled that off.'],
+	['Won\'t win a beauty pageant,', 'but it might do for adventuring.'],
+	['Nice and sturdy,', 'but it\'s no masterpiece.'],
+	['Tolerable.', 'A one-armed goblin might appreciate it.'],
+	['Good enough for a henchman to use.'],
+	['Try hitting your fingers less.'],
+	['It doesn\'t look pretty, but it will do.'],
+	['My arms are sore from', 'watching you flail that', 'poor hammer around.'],
+	['You\'re doing well.', 'You might reach apprentice', 'level in a few years.'],
+	['As mediocre as a low level', 'bureaucrat, but at least', 'twice as useful!'],
+	['Well... it\'s the right size?'],
+	['Almost as good as I', 'could have done.', 'When I was 10 years old.'],
+	['It\'s impressive how you', 'completely ignored my advice.'],
+	['Well, at least it matches',' your face.'],
+	['As beautiful as my', 'mother-in-law\'s face.'],
+	['It\'s like a finely aged wine,', 'post-digestion.'],
+	['Sharp work,', 'but it was supposed to be smooth.'],
+	['Worth less than the ore', 'it was mangled from.'],
+	['You\'re planning to save', 'the world with THAT?'],
+	['I liked that pattern.', 'Then I saw you murder it.'],
+	['Try swinging faster next time.'],
+	['Just like my grandma used to make.'],
+	['It\'s missing something...'],
+];
+const badComments = [
+	['What is that,', 'a horseshoe?'],
+	['Umm...', 'Maybe throw that away.'],
+	['I would totally use that.', '', 'As a paperweight! Ha!'],
+	['I feel bad for that ore.', 'Did you have to torture it?'],
+	['That abomination is an insult', 'to blacksmiths everywhere.'],
+	['If that were alive,', 'it would be beggin for us','to kill it.'],
+	['Put that thing out of its misery.', 'It wouldn\'t want to live like this.'],
+	['If you worked for me,', 'I\'d fire you.'],
+	['Might be good enough to', 'prop the door open.'],
+	['Last time I did work that good', 'I had the plague.', 'And two broken arms.'],
+	['No, no, no.', 'You hold the OTHER end', 'of the hammer.'],
+	['Show me how you did that again?', 'I want to remember what NOT to do.'],
+	['I didn\'t ask you to make a spoon...'],
+	['You\'re amazing!', 'I didn\'t think it was possible', 'to ruin metal like that.'],
+	['Back to smithing school', 'for you, boy.'],
+	['You keep practicing.', 'I\'m going to go cry a bit.'],
+	['I\'d claw my eyes out,', 'if I still had eyes.'],
+	['Sharpen the blade,', 'not the hilt!'],
+	['Why is there a hole in that?', 'Were you making swiss cheese?'],
+	['Toss that trash', 'before I toss my cookies.'],
+	['Well done, student!', 'If you were trying to', 'disappoint me!'],
+	['Did you sneeze when', 'you were shaping that?'],
+	['Looks like my wife\'s food tasted.'],
+	['Almost as good as I', 'could have done.', 'Left handed.', 'With my eyes closed.'],
+	['That poor anvil got hammered...', 'for that?'],
+	['It\'s like the town drunk:','hammered,', 'then tossed in the gutter.'],
+	['I know what that is!', 'Abstract art!', 'Right?'],
+	['Umm... spikes?', 'I don\'t think that','should have spikes.'],
+	['I thought I was a ghost,', 'not in Hell.'],
+	['Maybe consider a different career.'],
+	['It\'s missing something.', 'Oh, right.  Competence.'],
+	['A thousand monkeys pounding', 'on a thousand anvils', 'couldn\'t make gear that bad.'],
+	['Aaaaah!', 'Make it go away!'],
+];
+Window_SmithyResults.prototype.getComment = function() {
+	// BadComments for failures, Rank D, and Rank E.
+	let comments = badComments;
+	if (this._itemCrafted) {
+		switch (this._luckRank) {
+			case 'S':
+			case 'A':
+				comments = goodComments;
+				break;
+			case 'B':
+			case 'C':
+				comments = okayComments;
+				break;
+		}
+	}
+
+	const index = Math.floor(Math.random() * comments.length);
+	return comments[index];
 };
 
 Window_SmithyResults.prototype.show = function() {
