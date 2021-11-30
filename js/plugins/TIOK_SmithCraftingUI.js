@@ -33,18 +33,6 @@ Imported.TIOK_SmithCraftingUI = true;
 
 var TIOK = TIOK || {};
 TIOK.SmithCraftingUI = TIOK.SmithCraftingUI || {
-	currentLocation: 'anvil', // 'anvil' | 'furnace' | 'grindstone'
-
-	// These are the values we directly update on each crafting tick or action.
-	currentShape: 0, // How complete the item is.
-	currentHeat: 0, // How hot the ore is.
-	currentPolish: 0, // How "polished" (sharpened/smoothed) the item is.
-
-	additives: [], // Additives that have been added to the current crafting run.
-	flux: null, // The flux that has been applied to the current crafting run (or null for none).
-
-	turnCountdown: 0,
-	hammerPending: false,
 	pendingAdditive: null,
 };
 
@@ -77,15 +65,7 @@ PluginManager.registerCommand('TIOK_SmithCraftingUI', 'showCraftingUI' , functio
 	}, 500);
 
 	// Reset crafting state.
-	TIOK.SmithCraftingUI.currentShape = 0;
-	TIOK.SmithCraftingUI.currentHeat = 0;
-	TIOK.SmithCraftingUI.currentPolish = 0;
-	TIOK.SmithCraftingUI.additives = [];
-	TIOK.SmithCraftingUI.flux = null;
-	TIOK.SmithCraftingUI.currentLocation = 'anvil';
-	TIOK.SmithCraftingUI.turnCountdown = 0;
-	TIOK.SmithCraftingUI.hammerPending = false;
-	TIOK.SmithCraftingUI.pendingAdditive = null;
+	TIOK.SmithyManager.reset();
 });
 
 //=============================================================================
@@ -100,7 +80,10 @@ SmithCraftingScene.prototype.constructor = SmithCraftingScene;
 SmithCraftingScene.prototype.initialize = function() {
 	Scene_Base.prototype.initialize.call(this);
 
-	TIOK.SmithCraftingUI._scene = this;
+	TIOK.SmithCraftingUI.scene = this;
+
+	// Set up manager callbacks.
+	TIOK.SmithyManager.onCanTakeAction(this.handleCanTakeAction.bind(this));
 }
 
 SmithCraftingScene.prototype.create = function() {
@@ -131,11 +114,6 @@ SmithCraftingScene.prototype.create = function() {
 };
 
 SmithCraftingScene.prototype.precacheVariables = function () {
-	// Pre-cache variables that we will use in the update loop.
-	this._heat = TIOK.getFireHeat();
-	this._pattern = TIOK.getSelectedPattern();
-	this._ore = TIOK.getSelectedOre();
-
 	// Load this nice and early so it is ready before we need it.
 	this._ghostBitmap = ImageManager.loadFace('NPC_OldSmith');
 }
@@ -145,7 +123,7 @@ SmithCraftingScene.prototype.start = function() {
 	this.adjustBackground();
     this.startFadeIn(24, false);
 
-	this._running = true;
+	TIOK.SmithyManager.start();
 };
 
 SmithCraftingScene.prototype.createBackground = function() {
@@ -247,9 +225,10 @@ SmithCraftingScene.prototype.adjustBackground = function() {
 };
 
 SmithCraftingScene.prototype.createTimer = function() {
+	const pattern = TIOK.getSelectedPattern();
     this._timer = TIOK.Timer.create();
-	this._timer.setWarningTime(this._pattern.par);
-	this._timer.setFailureTime(this._pattern.par * 1.5);
+	this._timer.setWarningTime(pattern.par);
+	this._timer.setFailureTime(pattern.par * 1.5);
 	this.addChild(this._timer);
 };
 
@@ -287,75 +266,50 @@ SmithCraftingScene.prototype.openResultsWindow = function() {
 	this.addWindow(this._resultsWindow);
 	this._timer.stop();
 	this._commandWindow.close();
-	this._running = false;
+
+	TIOK.SmithyManager.pause();
 
 	this._resultsWindow.setup();
 	this._resultsWindow.show();
 }
 
+SmithCraftingScene.prototype.performHammerStrike = function() {
+	function hitIt() {
+		// TODO: Maybe an animation and sound effect first?
+		TIOK.SmithyManager.triggerHammerStrike();
+	}
+
+	if (TIOK.SmithyManager.getCurrentLocation() !== 'anvil') {
+		// If we're not at the anvil, get there.
+		this._craftedItemSprite.moveToAnvil(hitIt.bind(this));
+	} else {
+		// Already at anvil, so queue up the hammer event.
+		hitIt();
+	}
+}
+
+SmithCraftingScene.prototype.moveItemToFurnace = function() {
+	this._craftedItemSprite.moveToFurnace();
+}
+
+SmithCraftingScene.prototype.moveItemToGrindstone = function() {
+	this._craftedItemSprite.moveToGrindstone();
+}
+
+SmithCraftingScene.prototype.moveAdditiveToAnvil = function() {
+	this._additiveSprite.moveToAnvil();
+}
+
+SmithCraftingScene.prototype.handleCanTakeAction = function() {
+	this.openCommandWindow();
+	// A little redundant to do this each time.
+	this._timer.start();
+}
+
 SmithCraftingScene.prototype.update = function() {
 	Scene_Base.prototype.update.call(this);
 
-	// Stop with all the updates once crafting is complete.
-	if (!this._running) {
-		return;
-	}
-
-	// Player turn countdown.
-	if (TIOK.SmithCraftingUI.turnCountdown >= 0) {
-		TIOK.SmithCraftingUI.turnCountdown -= 1;
-
-		if (TIOK.SmithCraftingUI.turnCountdown < 0) {
-			this.openCommandWindow();
-			// A little redundant to do this each time
-			this._timer.start();
-		}
-	}
-
-	// Only add heat or polish if the CraftingItem is actually IN the location, instead of animating toward it.
-	if (this._craftedItemSprite._movementCountdown === 0) {
-		// Heat update.
-		if (TIOK.SmithCraftingUI.currentLocation === 'furnace') {
-			TIOK.SmithCraftingUI.currentHeat = Math.min(TIOK.SmithCraftingUI.currentHeat + this._heat, 10000);
-		} else if (TIOK.SmithCraftingUI.currentLocation === 'anvil') {
-			TIOK.SmithCraftingUI.currentHeat = Math.max(0, TIOK.SmithCraftingUI.currentHeat - 1);
-		} else if (TIOK.SmithCraftingUI.currentLocation === 'grindstone') {
-			TIOK.SmithCraftingUI.currentHeat = Math.max(0, TIOK.SmithCraftingUI.currentHeat - 2);
-		}
-
-		// Polish update.
-		if (TIOK.SmithCraftingUI.currentLocation === 'grindstone') {
-			TIOK.SmithCraftingUI.currentPolish = Math.min(TIOK.SmithCraftingUI.currentPolish + 1, 1000);
-		}
-
-		// Shape update.
-		const currentHeat = TIOK.SmithCraftingUI.currentHeat;
-		if (TIOK.SmithCraftingUI.hammerPending) {
-			let hammerRate = 1.0;
-			// Is the ore too hot or cold to work with?
-			if (currentHeat <= this._ore.heatEnough || currentHeat >= this._ore.heatMelting) { 
-				hammerRate = 0; 
-			// Is the ore workable, but cold?
-			} else if (currentHeat <= this._ore.heatGood) {
-				hammerRate = (currentHeat - this._ore.heatEnough) / (this._ore.heatGood - this._ore.heatEnough);
-			// Is the ore workable, but hot?
-			} else if (currentHeat >= this._ore.heatTooMuch) {
-				hammerRate = (this._ore.heatMelting - currentHeat) / (this._ore.heatMelting - this._ore.heatTooMuch);
-			}
-			const hammerAmount = Math.max(10 * hammerRate, hammerRate > 0 ? 1 : 0);
-			TIOK.SmithCraftingUI.currentShape = Math.min(TIOK.SmithCraftingUI.currentShape + hammerAmount, this._pattern.shape);
-			TIOK.SmithCraftingUI.currentPolish = Math.max(TIOK.SmithCraftingUI.currentPolish - 100, 0);
-			TIOK.SmithCraftingUI.currentHeat = Math.max(currentHeat - 25, 0);
-			// TODO: Animate hammer strike?
-			// TODO: Play a hammer sound?
-			TIOK.SmithCraftingUI.hammerPending = false;
-		}
-		if (currentHeat > this._ore.heatMelting) {
-			// If the ore is melting, we lose shape and polish every tick!
-			TIOK.SmithCraftingUI.currentShape = Math.max(TIOK.SmithCraftingUI.currentShape - 0.1, 0);	
-			TIOK.SmithCraftingUI.currentPolish = Math.max(TIOK.SmithCraftingUI.currentPolish - 1, 0);	
-		}
-	}
+	TIOK.SmithyManager.update();
 }
 
 //=============================================================================
@@ -384,8 +338,8 @@ Sprite_HeatGauge.prototype.update = function() {
 }
 
 Sprite_HeatGauge.prototype.updateHeat = function () {
-	if (this._displayedValue !== TIOK.SmithCraftingUI.currentHeat) {
-		this._displayedValue = TIOK.SmithCraftingUI.currentHeat;
+	if (this._displayedValue !== TIOK.SmithyManager.currentHeat) {
+		this._displayedValue = TIOK.SmithyManager.currentHeat;
 		this.drawGauge();
 	}
 };
@@ -473,26 +427,26 @@ Sprite_ShapeGauge.prototype.update = function() {
 }
 
 Sprite_ShapeGauge.prototype.updateShape = function () {
-	if (this._displayedValue !== TIOK.SmithCraftingUI.currentShape) {
+	if (this._displayedValue !== TIOK.SmithyManager.currentShape) {
 		if (this._barAnimDelta === 0) {
 			// This is the first tick after a shape change, so set up the change animation.
-			if (this._displayedValue > TIOK.SmithCraftingUI.currentShape) {
+			if (this._displayedValue > TIOK.SmithyManager.currentShape) {
 				// Shape loss is smaller and immediate, so no actual animation.
-				this._displayedValue = TIOK.SmithCraftingUI.currentShape;
+				this._displayedValue = TIOK.SmithyManager.currentShape;
 			} else {
 				// Shape gain comes from hammering, so we animate it across a few frames.
-				this._barAnimDelta = Math.ceil((TIOK.SmithCraftingUI.currentShape - this._displayedValue) / 5);
+				this._barAnimDelta = Math.ceil((TIOK.SmithyManager.currentShape - this._displayedValue) / 5);
 			}
 		} else {
 			// The change animation is already running, so just progress it.
-			this._displayedValue = Math.min(TIOK.SmithCraftingUI.currentShape, this._displayedValue + this._barAnimDelta);
-			if (this._displayedValue === TIOK.SmithCraftingUI.currentShape) {
+			this._displayedValue = Math.min(TIOK.SmithyManager.currentShape, this._displayedValue + this._barAnimDelta);
+			if (this._displayedValue === TIOK.SmithyManager.currentShape) {
 				// Anim complete.  No more delta.
 				this._barAnimDelta = 0;
 
 				// Is the crafting session complete?
 				if (this._displayedValue >= this._pattern.shape) {
-					TIOK.SmithCraftingUI._scene.openResultsWindow();
+					TIOK.SmithCraftingUI.scene.openResultsWindow();
 				}
 			}
 		}
@@ -549,8 +503,8 @@ Sprite_PolishGauge.prototype.update = function() {
 }
 
 Sprite_PolishGauge.prototype.updatePolish = function () {
-	if (this._displayedValue !== TIOK.SmithCraftingUI.currentPolish) {
-		this._displayedValue = TIOK.SmithCraftingUI.currentPolish;
+	if (this._displayedValue !== TIOK.SmithyManager.currentPolish) {
+		this._displayedValue = TIOK.SmithyManager.currentPolish;
 		this.drawGauge();
 	}
 };
@@ -563,8 +517,7 @@ Sprite_PolishGauge.prototype.drawGauge = function() {
 	b.clear();
 
 	// Letter on the left of the bar.
-	const pattern = TIOK.getSelectedPattern();
-	const gaugeText = pattern && pattern.isArmor ? 'Polish' : 'Sharpness';
+	const gaugeText = this._pattern && this._pattern.isArmor ? 'Polish' : 'Sharpness';
 	b.fontSize = 28;
 	b.textColor = '#ffffff';
 	b.drawText(gaugeText, 0, 0, b.width, 28, 'center');
@@ -612,62 +565,102 @@ Sprite_CraftedItem.prototype.initialize = function () {
 	this._location = 'anvil';
 	this._xOffset = 0;
 	this._yOffset = 0;
-	this._movementDuration = 45;
-	this._movementCountdown = 0;
 	this._shape = 'none';
 
 	// Pre-calculated positions to simplify animation.
-	this._positions = {
-		anvil: { x: Graphics.width / 2 + 10, y: Graphics.height / 2 - 30},
-		furnace: { x: 195, y: Graphics.height / 2 - 100},
-		grindstone: { x: Graphics.width - 150, y: Graphics.height / 2 - 110}
-	}
+	const anvilPos = { x: Graphics.width / 2 + 10, y: Graphics.height / 2 - 30};
+	const furnacePos = { x: 195, y: Graphics.height / 2 - 100};
+	const grindstonePos = { x: Graphics.width - 150, y: Graphics.height / 2 - 110};
 
-	this.move(this._positions.anvil.x, this._positions.anvil.y);
+	// Pre-built animations so we can just trigger them by name.
+	this._animAnvilToFurnace = TIOK.SpriteAnimation.position(this, anvilPos.x, furnacePos.x, anvilPos.y, furnacePos.y, 45);
+	this._animAnvilToGrindstone = TIOK.SpriteAnimation.position(this, anvilPos.x, grindstonePos.x, anvilPos.y, grindstonePos.y, 45);
+	this._animFurnaceToAnvil = TIOK.SpriteAnimation.position(this, furnacePos.x, anvilPos.x, furnacePos.y, anvilPos.y, 45);
+	this._animFurnaceToGrindstone = TIOK.SpriteAnimation.position(this, furnacePos.x, grindstonePos.x, furnacePos.y, grindstonePos.y, 45);
+	this._animGrindstoneToAnvil = TIOK.SpriteAnimation.position(this, grindstonePos.x, anvilPos.x, grindstonePos.y, anvilPos.y, 45);
+	this._animGrindstoneToFurnace = TIOK.SpriteAnimation.position(this, grindstonePos.x, furnacePos.x, grindstonePos.y, furnacePos.y, 45);
+
+	this.move(anvilPos.x, anvilPos.y);
 };
 
 Sprite_CraftedItem.prototype.update = function() {
-    this.updatePosition();
 	this.updateShape();
 }
 
-Sprite_CraftedItem.prototype.updatePosition = function () {
-	// If we need to move, move!
-	if (this._movementCountdown > 0) {
-		this._movementCountdown -= 1;
-
-		const rate = this._movementCountdown / this._movementDuration;
-		const targetPos = this._positions[this._location];
-		const newX = targetPos.x + this._xOffset * rate;
-		const newY = targetPos.y + this._yOffset * rate;
-		this.move(newX, newY);
-
-		if (this._movementCountdown === 0) {
-			// TODO: Trigger sound effects, animations, etc. for the final destination.
-			if (this._location === 'anvil') {
-				// Just got to the anvil, so queue up the hammer event.
-				TIOK.SmithCraftingUI.hammerPending = true;
-			}
+Sprite_CraftedItem.prototype.moveToAnvil = function(callback) {
+	console.log('Sprite_CraftedItem.moveToAnvil()');
+	const fullCallback = () => {
+		if (callback) {
+			callback();
 		}
+		TIOK.SmithyManager.triggerItemIsOnAnvil();
 	}
+	switch(TIOK.SmithyManager.getCurrentLocation()) {
+		case 'anvil': // Already there!
+			break;
+		case 'furnace':
+			console.log('---Moving from Furnace to Anvil');
+			this._animFurnaceToAnvil.start(fullCallback, true);
+			break;
+		case 'grindstone':
+			console.log('---Moving from Furnace to Grindstone');
+			this._animGrindstoneToAnvil.start(fullCallback, true);
+			break;
+	}
+	TIOK.SmithyManager.triggerItemIsMoving();
+}
 
-	// If we're changing locations, set up the movement animation.
-	if (this._location !== TIOK.SmithCraftingUI.currentLocation) {
-		// Calculate the xOffset for animating motion between the old spot and the new one.
-		const oldPos = this._positions[this._location];
-		const newPos = this._positions[TIOK.SmithCraftingUI.currentLocation];
-		this._xOffset = oldPos.x - newPos.x;
-		this._yOffset = oldPos.y - newPos.y;
-		// And declare that we are in the new location (or at least moving toward it).
-		this._location = TIOK.SmithCraftingUI.currentLocation;
-		this._movementCountdown = this._movementDuration;
+Sprite_CraftedItem.prototype.moveToFurnace = function(callback) {
+	console.log('Sprite_CraftedItem.moveToFurnace()');
+	const fullCallback = () => {
+		if (callback) {
+			callback();
+		}
+		console.log('---Arrived at Furnace');
+		TIOK.SmithyManager.triggerItemIsOnFurnace();
 	}
-};
+	switch(TIOK.SmithyManager.getCurrentLocation()) {
+		case 'anvil':
+			console.log('---Moving from Anvil to Furnace');
+			this._animAnvilToFurnace.start(fullCallback, true);
+			break;
+		case 'furnace': // Already there!
+			break;
+		case 'grindstone':
+			console.log('---Moving from Grindstone to Furnace');
+			this._animGrindstoneToFurnace.start(fullCallback, true);
+			break;
+	}
+	TIOK.SmithyManager.triggerItemIsMoving();
+}
+
+Sprite_CraftedItem.prototype.moveToGrindstone = function(callback) {
+	console.log('Sprite_CraftedItem.moveToGrindstone()');
+	const fullCallback = () => {
+		if (callback) {
+			callback();
+		}
+		TIOK.SmithyManager.triggerItemIsOnGrindstone();
+	}
+	switch(TIOK.SmithyManager.getCurrentLocation()) {
+		case 'anvil':
+			console.log('---Moving from Anvil to Grindstone');
+			this._animAnvilToGrindstone.start(fullCallback, true);
+			break;
+		case 'furnace':
+			console.log('---Moving from Furnace to Grindstone');
+			this._animFurnaceToGrindstone.start(fullCallback, true);
+			break;
+		case 'grindstone': // Already there!
+			break;
+	}
+	TIOK.SmithyManager.triggerItemIsMoving();
+}
 
 Sprite_CraftedItem.prototype.updateShape = function () {
 	// Check Shape against breakpoints.  Change shape and trigger a redraw if we have crossed a threshold.
 	let newShape = 'Ingot';
-	const shapeRate = TIOK.SmithCraftingUI.currentShape / this._pattern.shape;
+	const shapeRate = TIOK.SmithyManager.currentShape / this._pattern.shape;
 
 	if (shapeRate < 0.3) {
 		newShape = 'Ingot';
@@ -721,65 +714,39 @@ Sprite_CraftingAdditive.prototype.initialize = function () {
     this.anchor.y = 0.5;
 	this.contentsOpacity = 255;
 	this.opacity = 255;
-	this._location = 'crate';
-	this._xOffset = 0;
-	this._yOffset = 0;
-	this._movementDuration = 45;
-	this._movementCountdown = 0;
 
 	// Pre-calculated positions to simplify animation.
-	this._positions = {
-		anvil: { x: Graphics.width / 2 + 10, y: Graphics.height / 2 - 30},
-		crate: { x: 126, y: Graphics.height - 120}
-	}
+	const anvilPos = { x: Graphics.width / 2 + 10, y: Graphics.height / 2 - 30};
+	this._cratePos = { x: 126, y: Graphics.height - 120};
+	const halfwayPos = { x: 126, y: Graphics.height - 270};
 
-	this.move(this._positions.crate.x, this._positions.crate.y);
+	this._animCrateToAnvil = TIOK.SpriteAnimation.sequence([
+		// Move up out of the crate.
+		TIOK.SpriteAnimation.position(this, this._cratePos.x, halfwayPos.x, this._cratePos.y, halfwayPos.y, 25),
+		// Move over to the anvil.
+		TIOK.SpriteAnimation.position(this, halfwayPos.x, anvilPos.x, halfwayPos.y, anvilPos.y, 35, 40),
+		// Once we're at the anvil, shrink and fade away.
+		TIOK.SpriteAnimation.parallel([
+			TIOK.SpriteAnimation.scale(this, 1, 0.5, 30, 15),
+			TIOK.SpriteAnimation.opacity(this, 255, 0, 30, 15),
+		])
+	]);
+
+	this.move(this._cratePos.x, this._cratePos.y);
 };
 
 Sprite_CraftingAdditive.prototype.update = function() {
-    this.updatePosition();
 	this.updateAssets();
 }
 
-Sprite_CraftingAdditive.prototype.updatePosition = function () {
-	// If we need to move, move!
-	if (this._movementCountdown > 0) {
-		this._movementCountdown -= 1;
-
-		const rate = this._movementCountdown / this._movementDuration;
-		const targetPos = this._positions[this._location];
-		const newX = targetPos.x + this._xOffset * rate;
-		const newY = targetPos.y + this._yOffset * rate;
-		this.move(newX, newY);
-
-		if (this._movementCountdown === 0) {
-			// TODO: Trigger sound effects, animations, etc. for the final destination.
-			if (this._location === 'anvil') {
-				// Got to the anvil, so the additive is no longer pending.
-				TIOK.SmithCraftingUI.pendingAdditive = null;
-			}
-		}
-	}
-
-	// If we're changing locations, set up the movement animation.
-	const newAdditive = TIOK.SmithCraftingUI.pendingAdditive;
-	if (newAdditive !== this._additive) {
-		if (newAdditive) {
-			// Calculate the xOffset for animating motion between the old spot and the new one.
-			const oldPos = this._positions.crate;
-			const newPos = this._positions.anvil;
-			this._xOffset = oldPos.x - newPos.x;
-			this._yOffset = oldPos.y - newPos.y;
-			// And declare that we are in the new location (or at least moving toward it).
-			this._location = 'anvil';
-			this._movementCountdown = this._movementDuration;
-		} else {
-			// Hide the additive inside the crate.
-			this._movementCountdown = 0;
-			this._location = 'crate';
-		}
-	}
-};
+Sprite_CraftingAdditive.prototype.moveToAnvil = function(callback) {
+	this._animCrateToAnvil.start(() => {
+		this.move(this._cratePos.x, this._cratePos.y);
+		this.opacity = 255;
+		this.scale.x = 1;
+		this.scale.y = 1;
+	}, true);
+}
 
 Sprite_CraftingAdditive.prototype.updateAssets = function () {
 	const newAdditive = TIOK.SmithCraftingUI.pendingAdditive;
@@ -857,9 +824,9 @@ Window_SmithyCommand.prototype.makeCommandList = function() {
 	const pattern = TIOK.getSelectedPattern();
 	const polishText = pattern && pattern.isArmor ? 'Polish' : 'Sharpen';
     this.addCommand('Hammer', 'Hammer');
-    this.addCommand('Heat Up', 'Heat Up', TIOK.SmithCraftingUI.currentLocation !== 'furnace');
-	this.addCommand(polishText, 'Polish', TIOK.SmithCraftingUI.currentLocation !== 'grindstone');
-	this.addCommand('Additives', 'Additives', TIOK.SmithCraftingUI.additives.length < pattern.maxAdditives || TIOK.SmithCraftingUI.flux == null);
+    this.addCommand('Heat Up', 'Heat Up', TIOK.SmithyManager.getCurrentLocation() !== 'furnace');
+	this.addCommand(polishText, 'Polish', TIOK.SmithyManager.getCurrentLocation() !== 'grindstone');
+	this.addCommand('Additives', 'Additives', TIOK.SmithyManager.additives.length < pattern.maxAdditives || TIOK.SmithyManager.flux == null);
 };
 
 Window_SmithyCommand.prototype.setup = function() {
@@ -871,41 +838,28 @@ Window_SmithyCommand.prototype.setup = function() {
 
 Window_SmithyCommand.prototype.onHammer = function() {
 	this.finalizeAction();
-	if (TIOK.SmithCraftingUI.currentLocation !== 'anvil') {
-		// Move item to Anvil.
-		TIOK.SmithCraftingUI.currentLocation = 'anvil';
-	} else {
-		// Already at anvil, so queue up the hammer event.
-		TIOK.SmithCraftingUI.hammerPending = true;
-	}
+
+	TIOK.SmithCraftingUI.scene.performHammerStrike();
 }
 
 Window_SmithyCommand.prototype.onHeatUp = function() {
 	this.finalizeAction();
-	//  Move item to Furnace.
-	TIOK.SmithCraftingUI.currentLocation = 'furnace';
-	// TODO: Play furnace sound?
-	// TODO: Animate flames?
+
+	TIOK.SmithCraftingUI.scene.moveItemToFurnace();
 }
 
 Window_SmithyCommand.prototype.onPolish = function() {
 	this.finalizeAction();
 	// Move item to grindstone.
-	TIOK.SmithCraftingUI.currentLocation = 'grindstone';
-	// TODO: Play grindstone sound?
-	// TODO: Animate sparks?
-	// TODO: Animate wheel spinning?
+	TIOK.SmithCraftingUI.scene.moveItemToGrindstone();
 }
 
 Window_SmithyCommand.prototype.onAdditives = function() {
-	TIOK.SmithCraftingUI._scene.openAdditiveSelector();
-	// TODO: Maybe show something to indicate that the Command window is inactive?  Arrow pointing over?
+	TIOK.SmithCraftingUI.scene.openAdditiveSelector();
 }
 
 Window_SmithyCommand.prototype.finalizeAction = function() {
-	// Reset countdown until user's next action.
-	// This is modified by the player's speed, so higher speed makes crafting faster too!
-	TIOK.SmithCraftingUI.turnCountdown = 180 - $gameActors.actor(1).agi;
+	TIOK.SmithyManager.restartTurnTimer();
 
 	// Hide the menu until the user can act.
 	this.close();
@@ -938,7 +892,7 @@ Window_AdditiveSelector.prototype.initialize = function() {
 Window_AdditiveSelector.prototype.onCancel = function() {
     this.close();
 	this.deactivate()
-	TIOK.SmithCraftingUI._scene._commandWindow.activate();
+	TIOK.SmithCraftingUI.scene._commandWindow.activate();
 };
 
 Window_AdditiveSelector.prototype.onOk = function() {
@@ -947,15 +901,16 @@ Window_AdditiveSelector.prototype.onOk = function() {
 	const additive = TIOK.getAdditiveById(itemId);
 	if (additive) {
 		if (additive.family === 'flux') {
-			TIOK.SmithCraftingUI.flux = additive;
+			TIOK.SmithyManager.flux = additive;
 		} else {
-			TIOK.SmithCraftingUI.additives.push(additive);
+			TIOK.SmithyManager.additives.push(additive);
 		}
+		TIOK.SmithCraftingUI.scene.moveAdditiveToAnvil();
 		TIOK.SmithCraftingUI.pendingAdditive = additive;
 	}
     this.close();
 	this.deactivate();
-	TIOK.SmithCraftingUI._scene._commandWindow.finalizeAction();
+	TIOK.SmithCraftingUI.scene._commandWindow.finalizeAction();
 };
 
 Window_AdditiveSelector.prototype.maxCols = function() {
@@ -986,14 +941,14 @@ Window_AdditiveSelector.prototype.isEnabled = function(item) {
 
 	if (additive.family === 'flux') {
 		// Flux is valid only if no flux has been selected yet.
-		return TIOK.SmithCraftingUI.flux === null;
+		return TIOK.SmithyManager.flux === null;
 	} else {
 		// Other additives are valid if there is an additive slot free for the selected pattern.  Yes, you can use the same additive twice.
 		const pattern = TIOK.getSelectedPattern();
 		if (!pattern) {
 			return false;
 		}
-		return TIOK.SmithCraftingUI.additives.length < pattern.maxAdditives;
+		return TIOK.SmithyManager.additives.length < pattern.maxAdditives;
 	}
 };
 
@@ -1004,7 +959,6 @@ Window_AdditiveSelector.prototype.drawItem = function(index) {
         this.changePaintOpacity(this.isEnabled(item));
         this.drawItemName(item, rect.x, rect.y, rect.width);
 		this.drawItemTier(item, rect);
-		// TODO: Draw tier and family?
         this.changePaintOpacity(1);
     }
 };
@@ -1066,7 +1020,7 @@ Window_SmithyResults.prototype.onButtonOk = function() {
 Window_SmithyResults.prototype.processOk = function() {
     this.close();
 
-	TIOK.SmithCraftingUI._scene.startFadeOut(30);
+	TIOK.SmithCraftingUI.scene.startFadeOut(30);
 	setTimeout(() => {
 		// Unselect Pattern and Ore.
 		$gameVariables._data[7] = 0;
@@ -1097,17 +1051,17 @@ Window_SmithyResults.prototype.calculateRatesAndRankings = function() {
 	// Ore modifier.
 	successRate += ore.successRate;
 	// Flux modifier.
-	if (TIOK.SmithCraftingUI.flux) {
-		successRate += TIOK.SmithCraftingUI.flux.successRate;
+	if (TIOK.SmithyManager.flux) {
+		successRate += TIOK.SmithyManager.flux.successRate;
 	}
 	// Additive modifiers.
-	TIOK.SmithCraftingUI.additives.forEach((additive) => {
+	TIOK.SmithyManager.additives.forEach((additive) => {
 		successRate += additive.successRate;
 	});
 
 
 	// Time ranking.
-	const timeRate = TIOK.SmithCraftingUI._scene._timer.getValue() / pattern.par;
+	const timeRate = TIOK.SmithCraftingUI.scene._timer.getValue() / pattern.par;
 	let timeRank = 'F';
 	if (timeRate < 0.5) {
 		timeRank = 'S';
@@ -1132,7 +1086,7 @@ Window_SmithyResults.prototype.calculateRatesAndRankings = function() {
 	}
 
 	// Sharpness ranking.
-	const polishDelta = Math.abs(TIOK.SmithCraftingUI.currentPolish - pattern.polish);
+	const polishDelta = Math.abs(TIOK.SmithyManager.currentPolish - pattern.polish);
 	let polishRank = 'F';
 	if (polishDelta < 20) {
 		polishRank = 'S';
@@ -1253,14 +1207,14 @@ Window_SmithyResults.prototype.calculateOutput = function () {
 		let firstAdditiveRank = null;
 		let secondAdditiveFamily = null;
 		let secondAdditiveRank = null;
-		if (TIOK.SmithCraftingUI.additives.length > 0) {
-			const firstAdditive = TIOK.SmithCraftingUI.additives[0];
+		if (TIOK.SmithyManager.additives.length > 0) {
+			const firstAdditive = TIOK.SmithyManager.additives[0];
 			firstAdditiveFamily = firstAdditive.family;
 			firstAdditiveRank = reduceRank(firstAdditive.rank, ranksLost);
 			let hasFirstAdditive = extendedRanks.indexOf(firstAdditiveRank) <= extendedRanks.indexOf('E');
 
-			if (TIOK.SmithCraftingUI.additives.length > 1) {
-				const secondAdditive = TIOK.SmithCraftingUI.additives[1];
+			if (TIOK.SmithyManager.additives.length > 1) {
+				const secondAdditive = TIOK.SmithyManager.additives[1];
 
 				if (hasFirstAdditive) {
 					secondAdditiveFamily = secondAdditive.family;
@@ -1312,14 +1266,14 @@ const reduceRank = function(baseRank, reduction) {
 Window_SmithyResults.prototype.updateInventory = function () {
 	// Take away used ore, flux, and additives.
 	$gameParty.loseItem($dataItems[TIOK.getSelectedOre().index], TIOK.getSelectedPattern().oreCount);
-	if (TIOK.SmithCraftingUI.flux) {
-		$gameParty.loseItem($dataItems[TIOK.SmithCraftingUI.flux.index], 1);
+	if (TIOK.SmithyManager.flux) {
+		$gameParty.loseItem($dataItems[TIOK.SmithyManager.flux.index], 1);
 	}
-	if (TIOK.SmithCraftingUI.additives.length > 0) {
-		$gameParty.loseItem($dataItems[TIOK.SmithCraftingUI.additives[0].index], 1);
+	if (TIOK.SmithyManager.additives.length > 0) {
+		$gameParty.loseItem($dataItems[TIOK.SmithyManager.additives[0].index], 1);
 
-		if (TIOK.SmithCraftingUI.additives.length > 1) {
-			$gameParty.loseItem($dataItems[TIOK.SmithCraftingUI.additives[1].index], 1);
+		if (TIOK.SmithyManager.additives.length > 1) {
+			$gameParty.loseItem($dataItems[TIOK.SmithyManager.additives[1].index], 1);
 		}
 	}
 	
@@ -1402,7 +1356,7 @@ Window_SmithyResults.prototype.redraw = function () {
 	b.drawText(this._xpEarned.toString(), b.width - 100, 40, 100, 28, 'center');
 
 	// Comments from the Blacksmith's ghost!
-	const ghostFace = TIOK.SmithCraftingUI._scene._ghostBitmap;
+	const ghostFace = TIOK.SmithCraftingUI.scene._ghostBitmap;
 	b.blt(ghostFace, 0, 0, ImageManager.faceWidth, ImageManager.faceHeight, 0, topOfCommentSection + 10);
 	b.fontSize = 28;
 	b.textColor = '#ffffff';
@@ -1460,14 +1414,15 @@ const goodComments = [
 	['I\'d pay for that.'],
 	['Clever trick you did', 'with the hammer there.'],
 	['I wish I had made one', 'that nice before I died.'],
-	['I wouldn\'t have thought it possible.', 'You might have surpassed me.', 'Barely.', 'Once.'],
-	['You made something impressive today.'],
+	['I didn\'t think it was possible.', 'You might have surpassed me.', 'Barely.', 'Once.'],
+	['You made something impressive.'],
 	['A fine piece of work,','but don\'t let it go to your head.'],
 	['I admit it,', 'you\'re good at this.'],
 	['Have you done this before?'],
 	['Practice more like that', 'and you might reach perfection.'],
 	['Congratulations!', 'Your countless failures', 'managed to teach you something.'],
 	['I could have used an apprentice', 'like you when I was alive.'],
+	['Perfectly balanced.', 'As all things should be.'],
 ];
 const okayComments = [
 	['Not bad.', 'I mean, not good either.'],
@@ -1500,7 +1455,7 @@ const okayComments = [
 	['You\'re planning to save', 'the world with THAT?'],
 	['I liked that pattern.', 'Then I saw you murder it.'],
 	['Try swinging faster next time.'],
-	['Just like my grandma used to make.'],
+	['Just like my grandma', 'used to make.'],
 	['It\'s missing something...'],
 ];
 const badComments = [
