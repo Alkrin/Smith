@@ -588,7 +588,6 @@ Sprite_CraftedItem.prototype.update = function() {
 }
 
 Sprite_CraftedItem.prototype.moveToAnvil = function(callback) {
-	console.log('Sprite_CraftedItem.moveToAnvil()');
 	const fullCallback = () => {
 		if (callback) {
 			callback();
@@ -599,11 +598,9 @@ Sprite_CraftedItem.prototype.moveToAnvil = function(callback) {
 		case 'anvil': // Already there!
 			break;
 		case 'furnace':
-			console.log('---Moving from Furnace to Anvil');
 			this._animFurnaceToAnvil.start(fullCallback, true);
 			break;
 		case 'grindstone':
-			console.log('---Moving from Furnace to Grindstone');
 			this._animGrindstoneToAnvil.start(fullCallback, true);
 			break;
 	}
@@ -611,23 +608,19 @@ Sprite_CraftedItem.prototype.moveToAnvil = function(callback) {
 }
 
 Sprite_CraftedItem.prototype.moveToFurnace = function(callback) {
-	console.log('Sprite_CraftedItem.moveToFurnace()');
 	const fullCallback = () => {
 		if (callback) {
 			callback();
 		}
-		console.log('---Arrived at Furnace');
 		TIOK.SmithyManager.triggerItemIsOnFurnace();
 	}
 	switch(TIOK.SmithyManager.getCurrentLocation()) {
 		case 'anvil':
-			console.log('---Moving from Anvil to Furnace');
 			this._animAnvilToFurnace.start(fullCallback, true);
 			break;
 		case 'furnace': // Already there!
 			break;
 		case 'grindstone':
-			console.log('---Moving from Grindstone to Furnace');
 			this._animGrindstoneToFurnace.start(fullCallback, true);
 			break;
 	}
@@ -635,7 +628,6 @@ Sprite_CraftedItem.prototype.moveToFurnace = function(callback) {
 }
 
 Sprite_CraftedItem.prototype.moveToGrindstone = function(callback) {
-	console.log('Sprite_CraftedItem.moveToGrindstone()');
 	const fullCallback = () => {
 		if (callback) {
 			callback();
@@ -644,11 +636,9 @@ Sprite_CraftedItem.prototype.moveToGrindstone = function(callback) {
 	}
 	switch(TIOK.SmithyManager.getCurrentLocation()) {
 		case 'anvil':
-			console.log('---Moving from Anvil to Grindstone');
 			this._animAnvilToGrindstone.start(fullCallback, true);
 			break;
 		case 'furnace':
-			console.log('---Moving from Furnace to Grindstone');
 			this._animFurnaceToGrindstone.start(fullCallback, true);
 			break;
 		case 'grindstone': // Already there!

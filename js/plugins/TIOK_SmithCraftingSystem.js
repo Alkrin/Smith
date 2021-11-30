@@ -247,22 +247,18 @@ SmithyManager.restartTurnTimer = function() {
 }
 
 SmithyManager.triggerItemIsOnAnvil = function() {
-	console.log('Manager: Item is now on the Anvil');
 	this._currentLocation = 'anvil';
 }
 
 SmithyManager.triggerItemIsOnFurnace = function() {
-	console.log('Manager: Item is now on the Furnace');
 	this._currentLocation = 'furnace';
 }
 
 SmithyManager.triggerItemIsOnGrindstone = function() {
-	console.log('Manager: Item is now on the Grindstone');
 	this._currentLocation = 'grindstone';
 }
 
 SmithyManager.triggerItemIsMoving = function() {
-	console.log('Manager: Item is now Moving');
 	this._currentLocation = 'moving';
 }
 
