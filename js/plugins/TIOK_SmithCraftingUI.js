@@ -816,7 +816,8 @@ Window_SmithyCommand.prototype.makeCommandList = function() {
     this.addCommand('Hammer', 'Hammer');
     this.addCommand('Heat Up', 'Heat Up', TIOK.SmithyManager.getCurrentLocation() !== 'furnace');
 	this.addCommand(polishText, 'Polish', TIOK.SmithyManager.getCurrentLocation() !== 'grindstone');
-	this.addCommand('Additives', 'Additives', TIOK.SmithyManager.additives.length < pattern.maxAdditives || TIOK.SmithyManager.flux == null);
+	this.addCommand('Additives', 'Additives', TIOK.SmithyManager.getCurrentLocation() === 'anvil' && 
+	                (TIOK.SmithyManager.additives.length < pattern.maxAdditives || TIOK.SmithyManager.flux == null));
 };
 
 Window_SmithyCommand.prototype.setup = function() {
