@@ -1217,7 +1217,7 @@ Window_SmithyResults.prototype.calculateOutput = function () {
 			}
 
 			hasFirstAdditive = firstAdditiveRank && extendedRanks.indexOf(firstAdditiveRank) <= extendedRanks.indexOf('E');
-			const hasSecondAdditive = secondAttiveRank && extendedRanks.indexOf(secondAdditiveRank) <= extendedRanks.indexOf('E');
+			const hasSecondAdditive = secondAdditiveRank && extendedRanks.indexOf(secondAdditiveRank) <= extendedRanks.indexOf('E');
 
 			if (!hasFirstAdditive) {
 				firstAdditiveFamily = null;

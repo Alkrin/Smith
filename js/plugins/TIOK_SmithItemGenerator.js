@@ -1050,6 +1050,10 @@ TIOK.SmithItemGenerator.createItem = function(pattern, ore, oreRank, familyA, fa
 	console.log(`CreateItem(${pattern.name},${ore.name},${oreRank},${familyA},${familyARank},${familyB},${familyBRank})`);
 	let newItem = JSON.parse(JSON.stringify(pattern.templateItem));
 
+	// Convert family IDs into family data.
+	familyA = AdditiveFamily[familyA];
+	familyB = AdditiveFamily[familyB];
+
 	// Build the item name.
 	const oreName = ore.name.replace(' Ore','');
 	newItem.name = `${oreName} ${pattern.templateItem.name}`;
