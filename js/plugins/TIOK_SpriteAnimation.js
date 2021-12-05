@@ -79,6 +79,10 @@ SpriteAnimation.prototype.initialize = function(aSprite, targetProp, fromValue, 
 	}
 }
 
+SpriteAnimation.prototype.isRunning = function() {
+	return this._running;
+}
+
 SpriteAnimation.prototype.start = function(completionCallback, reset = false) {
 	if (reset) {
 		this._complete = false;
@@ -199,6 +203,10 @@ SpriteAnimationParallel.prototype.initialize = function(animationArray) {
 	this._completedAnimations = animationArray.map((_) => { return false; });
 }
 
+SpriteAnimationParallel.prototype.isRunning = function() {
+	return this._running;
+}
+
 SpriteAnimationParallel.prototype.start = function(completionCallback, reset = false) {
 	if (reset) {
 		this._complete = false;
@@ -288,6 +296,10 @@ SpriteAnimationSequence.prototype.initialize = function(animationArray) {
 	this._running = false;
 	this._complete = false;
 	this._currentAnimationIndex = 0;
+}
+
+SpriteAnimationSequence.prototype.isRunning = function() {
+	return this._running;
 }
 
 SpriteAnimationSequence.prototype.start = function(completionCallback, reset = false) {

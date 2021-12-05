@@ -6,9 +6,13 @@
 
 @plugindesc v1.0 Adds a custom scene for the Smith crafting system.
 
+@command showCraftingTutorial
+@text 'Show Crafting Tutorial'
+@ desc 'Attempts to show the Smith Crafting Tutorial.'
+
 @command showCraftingUI
 @text 'Show Crafting UI'
-@ desc 'Attempts to show the Smith Crafting UI.  If unable, an error dialog will be shown.'
+@ desc 'Attempts to show the Smith Crafting UI.'
 
 @author TIOK
 
@@ -58,7 +62,19 @@ console.warn('ZZZ LOADING TIOK_SmithCraftingUI');
 // Plugin Commands
 //=============================================================================
 
+PluginManager.registerCommand('TIOK_SmithCraftingUI', 'showCraftingTutorial' , function(args) {
+	TIOK.SmithCraftingUI.isTutorial = true;
+	SceneManager._scene.startFadeOut(30);
+	setTimeout(() => {
+		SceneManager.push(SmithCraftingScene);
+	}, 500);
+
+	// Reset crafting state.
+	TIOK.SmithyManager.reset();
+});
+
 PluginManager.registerCommand('TIOK_SmithCraftingUI', 'showCraftingUI' , function(args) {
+	TIOK.SmithCraftingUI.isTutorial = false;
 	SceneManager._scene.startFadeOut(30);
 	setTimeout(() => {
 		SceneManager.push(SmithCraftingScene);
@@ -74,11 +90,11 @@ PluginManager.registerCommand('TIOK_SmithCraftingUI', 'showCraftingUI' , functio
 function SmithCraftingScene() {
     this.initialize.apply(this, arguments);
 }
-SmithCraftingScene.prototype = Object.create(Scene_Base.prototype);
+SmithCraftingScene.prototype = Object.create(Scene_Message.prototype);
 SmithCraftingScene.prototype.constructor = SmithCraftingScene;
 
 SmithCraftingScene.prototype.initialize = function() {
-	Scene_Base.prototype.initialize.call(this);
+	Scene_Message.prototype.initialize.call(this);
 
 	TIOK.SmithCraftingUI.scene = this;
 
@@ -87,7 +103,7 @@ SmithCraftingScene.prototype.initialize = function() {
 }
 
 SmithCraftingScene.prototype.create = function() {
-    Scene_Base.prototype.create.call(this);
+    Scene_Message.prototype.create.call(this);
 
 	this.precacheVariables();
 
@@ -108,6 +124,8 @@ SmithCraftingScene.prototype.create = function() {
 	this.createTimer();
 
 	this.createWindowLayer();
+	this.createAllWindows();
+
 	this.createCommandWindow();
 	this.createAdditiveWindow();
 	this.createResultsWindow();
@@ -119,11 +137,15 @@ SmithCraftingScene.prototype.precacheVariables = function () {
 }
 
 SmithCraftingScene.prototype.start = function() {
-    Scene_Base.prototype.start.call(this);
+    Scene_Message.prototype.start.call(this);
 	this.adjustBackground();
     this.startFadeIn(24, false);
 
-	TIOK.SmithyManager.start();
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		TIOK.SmithyManager.startTutorial();
+	} else {
+		TIOK.SmithyManager.start();
+	}
 };
 
 SmithCraftingScene.prototype.createBackground = function() {
@@ -142,6 +164,11 @@ SmithCraftingScene.prototype.createAnvil = function() {
     this._anvilSprite.anchor.x = 0.5;
     this._anvilSprite.anchor.y = 0.5;
 
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._anvilSprite.opacity = 0;
+		this.showAnvilAnim = TIOK.SpriteAnimation.opacity(this._anvilSprite, 0, 255, 45, 0);
+	}
+
     this.addChild(this._anvilSprite);
 };
 
@@ -153,6 +180,11 @@ SmithCraftingScene.prototype.createFurnace = function() {
     this._furnaceSprite.y = Graphics.height / 2 - 100;
     this._furnaceSprite.anchor.x = 0;
     this._furnaceSprite.anchor.y = 0.5;
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._furnaceSprite.opacity = 0;
+		this.showFurnaceAnim = TIOK.SpriteAnimation.opacity(this._furnaceSprite, 0, 255, 45, 0);
+	}
 
     this.addChild(this._furnaceSprite);
 };
@@ -166,6 +198,11 @@ SmithCraftingScene.prototype.createGrindstone = function() {
     this._grindstoneSprite.anchor.x = 1.0;
     this._grindstoneSprite.anchor.y = 0.5;
 
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._grindstoneSprite.opacity = 0;
+		this.showGrindstoneAnim = TIOK.SpriteAnimation.opacity(this._grindstoneSprite, 0, 255, 45, 0);
+	}
+
     this.addChild(this._grindstoneSprite);
 };
 
@@ -177,6 +214,10 @@ SmithCraftingScene.prototype.createCrate = function() {
     this._crateBackSprite.y = Graphics.height - 25;
     this._crateBackSprite.anchor.x = 0.0;
     this._crateBackSprite.anchor.y = 1.0;
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._crateBackSprite.opacity = 0;
+	}
 
     this.addChild(this._crateBackSprite);
 
@@ -191,11 +232,27 @@ SmithCraftingScene.prototype.createCrate = function() {
     this._crateFrontSprite.anchor.x = 0.0;
     this._crateFrontSprite.anchor.y = 1.0;
 
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._crateFrontSprite.opacity = 0;
+	}
+
+	this.showCrateAnim = TIOK.SpriteAnimation.parallel([
+		TIOK.SpriteAnimation.opacity(this._crateBackSprite, 0, 255, 45, 0),
+		TIOK.SpriteAnimation.opacity(this._crateFrontSprite, 0, 255, 45, 0),
+		TIOK.SpriteAnimation.opacity(this._craftedItemSprite, 0, 255, 45, 45),
+	]);
+
     this.addChild(this._crateFrontSprite);
 };
 
 SmithCraftingScene.prototype.createCraftedItemSprite = function() {
     this._craftedItemSprite = new Sprite_CraftedItem();
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._craftedItemSprite.opacity = 0;
+		this.showCraftedItemAnim = TIOK.SpriteAnimation.opacity(this._craftedItemSprite, 0, 255, 45, 0);
+	}
+
     this.addChild(this._craftedItemSprite);
 };
 
@@ -206,16 +263,34 @@ SmithCraftingScene.prototype.createAdditiveSprite = function() {
 
 SmithCraftingScene.prototype.createHeatGauge = function() {
     this._heatGauge = new Sprite_HeatGauge();
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._heatGauge.opacity = 0;
+		this.showHeatGaugeAnim = TIOK.SpriteAnimation.opacity(this._heatGauge, 0, 255, 45, 0);
+	}
+
     this.addChild(this._heatGauge);
 };
 
 SmithCraftingScene.prototype.createShapeGauge = function() {
     this._shapeGauge = new Sprite_ShapeGauge();
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._shapeGauge.opacity = 0;
+		this.showShapeGaugeAnim = TIOK.SpriteAnimation.opacity(this._shapeGauge, 0, 255, 45, 0);
+	}
+
     this.addChild(this._shapeGauge);
 };
 
 SmithCraftingScene.prototype.createPolishGauge = function() {
     this._polishGauge = new Sprite_PolishGauge();
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._polishGauge.opacity = 0;
+		this.showPolishGaugeAnim = TIOK.SpriteAnimation.opacity(this._polishGauge, 0, 255, 45, 0);
+	}
+
     this.addChild(this._polishGauge);
 };
 
@@ -229,6 +304,12 @@ SmithCraftingScene.prototype.createTimer = function() {
     this._timer = TIOK.Timer.create();
 	this._timer.setWarningTime(pattern.par);
 	this._timer.setFailureTime(pattern.par * 1.5);
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this._timer.opacity = 0;
+		this.showTimerAnim = TIOK.SpriteAnimation.opacity(this._timer, 0, 255, 45, 0);
+	}
+
 	this.addChild(this._timer);
 };
 
@@ -307,9 +388,51 @@ SmithCraftingScene.prototype.handleCanTakeAction = function() {
 }
 
 SmithCraftingScene.prototype.update = function() {
-	Scene_Base.prototype.update.call(this);
+	Scene_Message.prototype.update.call(this);
+
+	if (TIOK.SmithCraftingUI.isTutorial) {
+		this.updateTutorial();
+	}
 
 	TIOK.SmithyManager.update();
+}
+
+SmithCraftingScene.prototype.updateTutorial = function() {
+	if (TIOK.SmithyManager.tutorialShowAnvil && !this.showAnvilAnim.isRunning() && this._anvilSprite.opacity === 0) {
+		this.showAnvilAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowCraftedItem && !this.showCraftedItemAnim.isRunning() && this._craftedItemSprite.opacity === 0) {
+		this.showCraftedItemAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowFurnace && !this.showFurnaceAnim.isRunning() && this._furnaceSprite.opacity === 0) {
+		this.showFurnaceAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowHeatGauge && !this.showHeatGaugeAnim.isRunning() && this._heatGauge.opacity === 0) {
+		this.showHeatGaugeAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowShapeGauge && !this.showShapeGaugeAnim.isRunning() && this._shapeGauge.opacity === 0) {
+		this.showShapeGaugeAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowGrindstone && !this.showGrindstoneAnim.isRunning() && this._grindstoneSprite.opacity === 0) {
+		this.showGrindstoneAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowPolishGauge && !this.showPolishGaugeAnim.isRunning() && this._polishGauge.opacity === 0) {
+		this.showPolishGaugeAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowCrate && !this.showCrateAnim.isRunning() && this._crateBackSprite.opacity === 0) {
+		this.showCrateAnim.start();
+	}
+
+	if (TIOK.SmithyManager.tutorialShowTimer && !this.showTimerAnim.isRunning() && this._timer.opacity === 0) {
+		this.showTimerAnim.start();
+	}
 }
 
 //=============================================================================
@@ -813,11 +936,23 @@ Window_SmithyCommand.prototype.initialize = function() {
 Window_SmithyCommand.prototype.makeCommandList = function() {
 	const pattern = TIOK.getSelectedPattern();
 	const polishText = pattern && pattern.isArmor ? 'Polish' : 'Sharpen';
-    this.addCommand('Hammer', 'Hammer');
-    this.addCommand('Heat Up', 'Heat Up', TIOK.SmithyManager.getCurrentLocation() !== 'furnace');
-	this.addCommand(polishText, 'Polish', TIOK.SmithyManager.getCurrentLocation() !== 'grindstone');
-	this.addCommand('Additives', 'Additives', TIOK.SmithyManager.getCurrentLocation() === 'anvil' && 
-	                (TIOK.SmithyManager.additives.length < pattern.maxAdditives || TIOK.SmithyManager.flux == null));
+
+	const hammerAllowed = (!TIOK.SmithCraftingUI.isTutorial || TIOK.SmithyManager.tutorialAllowHammer);
+
+	const furnaceAllowed = (!TIOK.SmithCraftingUI.isTutorial || TIOK.SmithyManager.tutorialAllowFurnace) &&
+						   (TIOK.SmithyManager.getCurrentLocation() !== 'furnace');
+
+	const polishAllowed = (!TIOK.SmithCraftingUI.isTutorial || TIOK.SmithyManager.tutorialAllowPolish) &&
+						  (TIOK.SmithyManager.getCurrentLocation() !== 'grindstone');
+
+	const additivesAllowed = (!TIOK.SmithCraftingUI.isTutorial || TIOK.SmithyManager.tutorialAllowAdditives) &&
+							 TIOK.SmithyManager.getCurrentLocation() === 'anvil' && 
+							 (TIOK.SmithyManager.additives.length < pattern.maxAdditives || TIOK.SmithyManager.flux == null);
+
+    this.addCommand('Hammer', 'Hammer', hammerAllowed);
+    this.addCommand('Heat Up', 'Heat Up', furnaceAllowed);
+	this.addCommand(polishText, 'Polish', polishAllowed);
+	this.addCommand('Additives', 'Additives', additivesAllowed);
 };
 
 Window_SmithyCommand.prototype.setup = function() {
@@ -1019,6 +1154,20 @@ Window_SmithyResults.prototype.processOk = function() {
 
 		SceneManager.pop();
 		SceneManager._nextScene.startFadeIn(30);
+
+		// Wait to give the xp until the user is back out of the crafting UI.
+		setTimeout(() => {
+			this.grantXP();
+
+			if (TIOK.SmithCraftingUI.isTutorial) {
+				setTimeout(() => {
+					// Mark the tutorial as finished.
+					TIOK.SmithCraftingUI.isTutorial = false;
+					// And trigger the post-tutorial commentary.
+					$gameSwitches.setValue(16, true);
+				}, 250);
+			}
+		}, 750);
 	}, 500);
 };
 
@@ -1026,7 +1175,6 @@ Window_SmithyResults.prototype.setup = function() {
 	this.calculateRatesAndRankings();
 	this.calculateOutput();
 	this.updateInventory();
-	this.grantXP();
 	this.redraw();
 }
 
