@@ -16,6 +16,10 @@
 @text 'SetFilter:ore'
 @ desc 'Sets the custom item type filter to "ore".'
 
+@command setItemSelectFilterAdditive
+@text 'SetFilter:additive'
+@ desc 'Sets the custom item type filter to "additive".'
+
 @command setItemSelectFilterNone
 @text 'ClearFilter'
 @ desc 'Clears the custom item type filter.  Default RMMZ logic will be used.'
@@ -79,6 +83,9 @@ PluginManager.registerCommand('TIOK_ItemSelectFilters', 'setItemSelectFilterPatt
 PluginManager.registerCommand('TIOK_ItemSelectFilters', 'setItemSelectFilterOre' , function(args) {
 	TIOK.ItemSelectFilters.currentItemType = 'ore';
 });
+PluginManager.registerCommand('TIOK_ItemSelectFilters', 'setItemSelectFilterAdditive' , function(args) {
+	TIOK.ItemSelectFilters.currentItemType = 'additive';
+});
 PluginManager.registerCommand('TIOK_ItemSelectFilters', 'setItemSelectFilterNone' , function(args) {
 	TIOK.ItemSelectFilters.currentItemType = '';
 });
@@ -123,13 +130,17 @@ Window_EventItem.prototype.includes = function(item) {
 				// If there's no selected pattern, then no ore is valid.
 				return false;
 			}
-			return true;
 	}
 
 	return true;
 };
 
+var _Window_EventItem_isEnabled = Window_EventItem.prototype.isEnabled;
 Window_EventItem.prototype.isEnabled = function(item) {
+	const enabledByDefault = _Window_EventItem_isEnabled(item);
+	if (!enabledByDefault) {
+		return false;
+	}
 	if (!item) {
 		return false;
 	}
@@ -138,18 +149,47 @@ Window_EventItem.prototype.isEnabled = function(item) {
 	const itemType = itemTypeNote ? itemTypeNote.substr(9) : '';
 
 	switch (itemType) {
+		case 'pattern':
+			const pattern = TIOK.getPatternById(item.id);
+			// Can only select a pattern you are skilled enough to use.
+			if (!pattern || pattern.minSkill > TIOK.getBlacksmithingSkill()) {
+				return false;
+			}
+			return true
 		case 'ore':
+			const ore = TIOK.getOreById(item.id);
+			// Can only select an ore you are skilled enough to use.
+			if (!ore || ore.minSkill > TIOK.getBlacksmithingSkill()) {
+				return false;
+			}
 			// Check that the user has enough of this item to craft the currently selected pattern.
-			const selectedPatternId = $gameVariables._data[7];
-			if (selectedPatternId) {
-				const patternData = TIOK.SmithItemGenerator.patterns.find((pattern) => { return pattern.index === selectedPatternId; });
-				const oreNeeded = patternData.oreCount;
+			const pattern2 = TIOK.getSelectedPattern();
+			if (pattern2) {
+				const oreNeeded = pattern2.oreCount;
 				const oreOwned = $gameParty._items && $gameParty._items[item.id] ? $gameParty._items[item.id] : 0;
 
 				return oreOwned >= oreNeeded;
 			} else {
 				// If there's no selected pattern, then no ore is valid.
 				return false;
+			}
+		case 'additive':
+			const additive = TIOK.getAdditiveById(item.id);
+			// Can only select an additive you are skilled enough to use.
+			if (!additive || additive.minSkill > TIOK.getBlacksmithingSkill()) {
+				return false;
+			}
+
+			if (additive.family === 'flux') {
+				// Flux is valid only if no flux has been selected yet.
+				return TIOK.SmithCraftingUI.flux === null;
+			} else {
+				// Other additives are valid if there is an additive slot free for the selected pattern.  Yes, you can use the same additive twice.
+				const pattern3 = TIOK.getSelectedPattern();
+				if (!pattern3) {
+					return false;
+				}
+				return TIOK.SmithCraftingUI.additives.length < pattern3.maxAdditives;
 			}
 		default: 
 			return true;

@@ -8,14 +8,6 @@
 
 @author TIOK
 
-@command forceNextItemSelectPositionBottom
-@text ForceNextItemSelectPositionBottom
-@ desc 'Forces the next ItemSelect command to display its window at the bottom of the screen.'
-
-@command forceNextItemSelectMandatory
-@text ForceNextItemSelectMandatory
-@ desc 'Forces the next ItemSelect window to display with no cancel button.'
-
 @help 
 ============================================================================
  Terms of Use
@@ -52,6 +44,33 @@ PluginManager.registerCommand('TIOK_Utils', 'forceNextItemSelectPositionBottom' 
 PluginManager.registerCommand('TIOK_Utils', 'forceNextItemSelectMandatory' , function(args) {
 	TIOK.Utils.forceItemSelectMandatory = true;
 });
+
+// Converts a #ffffff hex string into an [r,g,b] array
+TIOK.Utils.hex2rgb = function(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [
+        parseInt(result[1], 16),
+        parseInt(result[2], 16),
+        parseInt(result[3], 16)
+    ] : null;
+};
+
+// Inverse of the above
+TIOK.Utils.rgb2hex = function(rgb) {
+    return "#" + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1);
+};
+
+// Interpolates two [r,g,b] colors and returns an [r,g,b] of the result
+// Taken from the awesome ROT.js roguelike dev library at
+// https://github.com/ondras/rot.js
+TIOK.Utils.interpolateColor = function(color1, color2, factor) {
+  if (arguments.length < 3) { factor = 0.5; }
+  var result = color1.slice();
+  for (var i = 0; i < 3; i++) {
+    result[i] = Math.round(result[i] + factor * (color2[i] - color1[i]));
+  }
+  return result;
+};
 
 //=============================================================================
 // Plugin Dependencies
