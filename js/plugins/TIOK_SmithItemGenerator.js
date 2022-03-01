@@ -1005,8 +1005,8 @@ function additiveIsValid(additive) {
 	}
 	if (successRateNote) {
 		const successRate = +(successRateNote.substr(12));
-		if (isNaN(successRate) || successRate < -100 || successRate > 100) {
-			console.error('Found additive with invalid SuccessRate note (should be between -100 and 100)!', additive, successRateNote);
+		if (isNaN(successRate) || successRate < -100 || successRate > 200) {
+			console.error('Found additive with invalid SuccessRate note (should be between -100 and 200)!', additive, successRateNote);
 			return false;
 		}
 	} else {
