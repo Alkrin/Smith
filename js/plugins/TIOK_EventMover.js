@@ -89,8 +89,6 @@ PluginManager.registerCommand('TIOK_EventMover', 'repositionEvent' , function(ar
 		}
 	});
 
-	console.log('Events, EventsToMove', events, eventsToMove)
-
 	// If nothing needs to move, we're done!
 	if (eventsToMove.length <= 0) {
 		return;

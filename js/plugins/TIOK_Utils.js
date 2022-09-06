@@ -8,6 +8,14 @@
 
 @author TIOK
 
+@command forceNextItemSelectPositionBottom
+@text 'ForceNextItemSelectPositionBottom'
+@ desc 'Forces the next ItemSelect popup to appear at the bottom of the screen.'
+
+@command forceNextItemSelectMandatory
+@text 'ForceNextItemSelectMandatory'
+@ desc 'Hides the Cancel button for the next ItemSelect popup.'
+
 @help 
 ============================================================================
  Terms of Use
@@ -59,6 +67,16 @@ TIOK.Utils.hex2rgb = function(hex) {
 TIOK.Utils.rgb2hex = function(rgb) {
     return "#" + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1);
 };
+
+TIOK.Utils.shiftTier = function(tier, increment) {
+	const allTiers = 'FEDCBAS';
+
+	const index = allTiers.indexOf(tier);
+	
+	const finalIndex = Math.max(0, Math.min(allTiers.length - 1, index + increment));
+
+	return allTiers.charAt(finalIndex);
+}
 
 // Interpolates two [r,g,b] colors and returns an [r,g,b] of the result
 // Taken from the awesome ROT.js roguelike dev library at

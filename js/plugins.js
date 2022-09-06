@@ -3,6 +3,7 @@
 var $plugins =
 [
 {"name":"TIOK_Utils","status":true,"description":"v1.0 Adds enhancements with no other dependencies.","parameters":{}},
+{"name":"TIOK_CustomSave","status":true,"description":"v1.0 Provides easy access to custom save state.","parameters":{}},
 {"name":"TIOK_SpriteAnimation","status":true,"description":"v1.0 Adds a custom scene for the Smith crafting system.","parameters":{}},
 {"name":"TIOK_Timer","status":true,"description":"v1.0 Adds a timer that counts up instead of down.","parameters":{}},
 {"name":"TIOK_BalanceMeter","status":true,"description":"v1.0 Adds a \"Balance\" gauge to battlers.  Uses TP under the hood.","parameters":{"Gauge Text Font Size":"20",">>> Balance Gauge <<<":"","Balance Gauge Duration":"30","Balance Gauge Width":"100","Balance Gauge Height":"18","Balance Color 1":"#0000ff","Balance Color 2":"#ff0000","Balance Gauge X Padding":"0","Balance Gauge Y Padding":"0"}},
@@ -11,5 +12,6 @@ var $plugins =
 {"name":"TIOK_ItemSelectFilters","status":true,"description":"v1.0 Allows the user to add additional conditions when filtering items for the SelectItem command.","parameters":{}},
 {"name":"TIOK_SmithSmithyUI","status":true,"description":"v1.0 Adds the Smithy UI for use in Smith.","parameters":{}},
 {"name":"TIOK_SmithCraftingUI","status":true,"description":"v1.0 Adds a custom scene for the Smith crafting system.","parameters":{}},
-{"name":"TIOK_EventMover","status":true,"description":"v1.0 Repositions map events closer to the player.","parameters":{}}
+{"name":"TIOK_EventMover","status":true,"description":"v1.0 Repositions map events closer to the player.","parameters":{}},
+{"name":"TIOK_SmithMobGenerator","status":true,"description":"v1.0 Generates monsters by combining DB-defined templates.","parameters":{}}
 ];
