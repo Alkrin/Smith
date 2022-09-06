@@ -1,13 +1,13 @@
 [
 null,
-{"id":1,"expanded":true,"name":"DEBUG","order":1,"parentId":0,"scrollX":698.8,"scrollY":386.8},
-{"id":2,"expanded":false,"name":"Kyn's Realm","order":5,"parentId":0,"scrollX":1312.5,"scrollY":744.75},
-{"id":3,"expanded":false,"name":"Intro: Trail","order":2,"parentId":0,"scrollX":875,"scrollY":488.5},
-{"id":4,"expanded":true,"name":"Intro: Smithy","order":3,"parentId":0,"scrollX":1509,"scrollY":528.5},
-{"id":5,"expanded":false,"name":"Smithy Interior","order":4,"parentId":4,"scrollX":875,"scrollY":488.5},
-{"id":6,"expanded":true,"name":"World: Chapter One","order":6,"parentId":0,"scrollX":3968,"scrollY":2222},
-{"id":7,"expanded":true,"name":"Valley Pass","order":7,"parentId":6,"scrollX":1312.5,"scrollY":744.75},
-{"id":8,"expanded":false,"name":"Landing Zone: Drake","order":8,"parentId":7,"scrollX":816,"scrollY":624},
+{"id":1,"expanded":true,"name":"DEBUG","order":1,"parentId":0,"scrollX":954.5454545454546,"scrollY":532.9090909090909},
+{"id":2,"expanded":false,"name":"Kyn's Realm","order":5,"parentId":0,"scrollX":963.2727272727274,"scrollY":706.3636363636364},
+{"id":3,"expanded":false,"name":"Intro: Trail","order":2,"parentId":0,"scrollX":954.5454545454546,"scrollY":532.9090909090909},
+{"id":4,"expanded":true,"name":"Intro: Smithy","order":3,"parentId":0,"scrollX":1436.7272727272727,"scrollY":541.6363636363636},
+{"id":5,"expanded":false,"name":"Smithy Interior","order":4,"parentId":4,"scrollX":954.5454545454546,"scrollY":541.6363636363636},
+{"id":6,"expanded":true,"name":"World: Chapter One","order":6,"parentId":0,"scrollX":3836.727272727273,"scrollY":3298.3636363636365},
+{"id":7,"expanded":true,"name":"Valley Pass","order":7,"parentId":6,"scrollX":954.5454545454546,"scrollY":3939.818181818182},
+{"id":8,"expanded":false,"name":"Landing Zone: Drake","order":8,"parentId":7,"scrollX":954.5454545454546,"scrollY":532.9090909090909},
 {"id":9,"expanded":true,"name":"Landing Zone: Tortoise","order":10,"parentId":7,"scrollX":1312.5,"scrollY":732.75},
 {"id":10,"expanded":false,"name":"Landing Zone: Mammoth","order":9,"parentId":7,"scrollX":1312.5,"scrollY":732.75}
 ]
