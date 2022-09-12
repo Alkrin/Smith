@@ -86,18 +86,16 @@ PluginManager.registerCommand('TIOK_SmithMobGenerator', 'generateMobsForAllRegio
 
 	// We want the generated mobs to persist across save / load.
 	TIOK.CustomSave.mobsByRegion = mobsByRegion;
-
-	console.log("MobsByRegion", mobsByRegion);
 });
 
 PluginManager.registerCommand('TIOK_SmithMobGenerator', 'prepareMobsForCurrentRegion' , function(args) {
 	// What map region are we in?
-	const spawnerRegion = $gameVariables[13] || 1;
+	const spawnerRegion = $gameVariables._data[13] || 1;
 
 	// Where are the designated mob slots in the database?
 	let firstMobIndex;
 	for (firstMobIndex = 1; firstMobIndex < $dataEnemies.length; ++firstMobIndex) {
-		const mob = $dataEnemies[i];
+		const mob = $dataEnemies[firstMobIndex];
 		if (mob.name === '--Start Prepared Mobs') {
 			// Start after the tag so it is still there next time we need to prepare mobs.
 			firstMobIndex = firstMobIndex + 1;
@@ -519,12 +517,12 @@ TIOK.SmithMobGenerator.getRandomName = function(form) {
 
 TIOK.SmithMobGenerator.createMobEvents = function() {
 	// Where should we spawn the mobs?
-	const spawnerX = $gameVariables[11] || 0;
-	const spawnerY = $gameVariables[12] || 0;
+	const spawnerX = $gameVariables._data[11] || 0;
+	const spawnerY = $gameVariables._data[12] || 0;
 	// What map region should we reference for possible mobs?
-	const spawnerRegion = $gameVariables[13] || 1;
+	const spawnerRegion = $gameVariables._data[13] || 1;
 	// Miniboss desired?
-	const spawnMiniboss = $gameVariables[14] ? true : false;
+	const spawnMiniboss = $gameVariables._data[14] ? true : false;
 	// Loner, Pack, or Swarm?
 	const groupSize = Math.random();
 	const isLoner = spawnMiniboss || groupSize < 0.45; // 45% chance of single mob.
@@ -532,6 +530,7 @@ TIOK.SmithMobGenerator.createMobEvents = function() {
 	const isSwarm = !isLoner && !isPack; // 20% chance of large swarm.
 
 	const possibleMobs = TIOK.CustomSave.mobsByRegion[spawnerRegion];
+
 	const isRareMob = Math.random() > 0.9; // 10% chance of rare mob.
 
 	let chosenMob = null;
@@ -548,17 +547,111 @@ TIOK.SmithMobGenerator.createMobEvents = function() {
 		numMobs = Math.floor(Math.random() * 6) + 5; // 5-10 mobs.
 	}
 
-	console.log('Chosen mob', chosenMob);
-	console.log(`Num mobs: ${numMobs}`);
+	for (let mi = 0; mi < numMobs; ++mi) {
+		const mobEvent = new Mob_Event(chosenMob, spawnerX, spawnerY);
+		$gameMap._events[$gameMap._events.length] = mobEvent;
 
-	// TODO: Make a subclass of Game_Event that doesn't reference $dataMap.events for "page()" and "event()".
-	// TODO: Create one of those objects (or several) and push that into $gameMap._events (is there extra bookkeeping I need to know about?).
-	// TODO: Check if the mobs actually show up and wander and can be bumped into or not.
-	// TODO: Have the mobs start a battle on player touch.
-	// TODO: Grant rewards on combat win.
-	// TODO: What do we do if you lose?
+		const spriteset = SceneManager._scene._spriteset;
+
+		const sId = spriteset._characterSprites.length;
+		spriteset._characterSprites[sId] = new Sprite_Character(mobEvent);
+		spriteset._characterSprites[sId].update(); // To remove occasional full-spriteset visible issue
+		spriteset._tilemap.addChild(spriteset._characterSprites[sId]);
+	}
 }
 
-// TODO: Form values get pushed into the "battlerName" field in the final Enemy entry.
+//-----------------------------------------------------------------------------
+// Mob_Event
+//
+// Subclass of Game_Event that provides custom mob AI.
+
+function Mob_Event() {
+    this.initialize(...arguments);
+}
+
+Mob_Event.prototype = Object.create(Game_Event.prototype);
+Mob_Event.prototype.constructor = Mob_Event;
+
+Mob_Event.prototype.initialize = function(mobData, spawnerX, spawnerY) {
+	const myEventId = $gameMap._events.length;
+	let eyeIndex;
+	switch(mobData.eyeColor) {
+		case "Green": eyeIndex = 0; break;
+		case "Red": eyeIndex = 1; break;
+		case "Yellow": eyeIndex = 2; break;
+		case "Blue": eyeIndex = 3; break;
+		case "Purple": eyeIndex = 4; break;
+		default: eyeIndex = 0; break;
+	}
+
+	this._mobData = mobData;
+	this._spawnerX = spawnerX;
+	this._spawnerY = spawnerY;
+
+	// Rather than referencing $dataMap._events, we create a new custom event.
+	this._eventData = {
+		id: myEventId,
+		meta: {},
+		name: "TemplateMob",
+		note: "",
+		x: spawnerX,
+		y: spawnerY,
+		pages: [
+			{
+				conditions: {
+					actorId: 1, actorValid: false,
+					itemId: 1, itemValid: false,
+					selfSwitchCh: "A", selfSwitchValid: false,
+					switch1Id: 1, switch1Valid: false,
+					switch2Id: 1, switch2Valid: false,
+					variableId: 1, 	variableValid: false, variableValue: 0
+				},
+				directionFix: false,
+				image: {
+					characterIndex: eyeIndex,
+					characterName: mobData.spriteSheet,
+					direction: 2,
+					pattern: 0,
+					tileId: 0
+				},
+				list: [
+					{code: 250, indent: 0, parameters: [{name: "Blow1", volume: 90, pitch: 100, pan: 0}]}, 		// Play SE
+					{code: 355, indent: 0, parameters: [`$dataTroops[12].members[0].enemyId = ${mobData.id};`]},// Run arbitrary script (change the monster in the Random Battle encounter)
+					{code: 301, indent: 0, parameters: [0, 12, false, true]},									// Battle Processing - Troop 12: Random Battle
+					{code: 601, indent: 0, parameters: []},														// Start "Battle Won" handler
+					{code: 250, indent: 1, parameters: [{name: "Sheep", volume: 90, pitch: 100, pan: 0}]}, 		// Play SE
+					{code: 214, indent: 1, parameters: []}, 													// Erase this mob since it's dead.
+					// TODO: Grant rewards on combat win.
+					{code: 0, indent: 1, parameters: []}, 														// End "Battle Won" handler
+					{code: 603, indent: 0, parameters: []},														// Start "Battle Lost" handler
+					{code: 353, indent: 1, parameters: []}, 													// Game Over
+					{code: 0, indent: 1, parameters: []}, 														// End "Battle Lost" handler
+					{code: 604, indent: 0, parameters: []},														// End of Battle Processing
+					{code: 0, indent: 0, parameters: []} 														// End Script
+				],
+				moveFrequency: 3,
+				moveRoute: {
+					list: [{code: 0, parameters: []}],
+					repeat: true,
+					skippable: false,
+					wait: false
+				},
+				moveSpeed: 3,
+				moveType: 2, // Approach the Player
+				priorityType: 1, // Same as Player
+				stepAnime: false,
+				through: false,
+				trigger: 2, // Event touch
+				walkAnime: true
+			}
+		]
+	}
+
+    Game_Event.prototype.initialize.call(this, $gameMap._mapId, myEventId);
+};
+
+Mob_Event.prototype.event = function() {
+	return this._eventData;
+}
 
 })()}
