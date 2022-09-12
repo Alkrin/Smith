@@ -130,9 +130,6 @@ PluginManager.registerCommand('TIOK_SmithMobGenerator', 'prepareMobsForCurrentRe
 
 	$dataEnemies[firstMobIndex + 7] = possibleMobs.minibossRare;
 	$dataEnemies[firstMobIndex + 7].id = firstMobIndex + 7;
-
-	console.log('PrepareMobsForCurrentRegion()', $dataEnemies);
-	console.log('PrepareMobsForCurrentRegion()b', TIOK.CustomSave.mobsByRegion[spawnerRegion]);
 });
 
 //=============================================================================
@@ -519,17 +516,6 @@ TIOK.SmithMobGenerator.getRandomName = function(form) {
 }
 
 TIOK.SmithMobGenerator.createMobEvents = function() {
-	// Where are the designated mob slots in the database?
-	let firstMobIndex;
-	for (firstMobIndex = 1; firstMobIndex < $dataEnemies.length; ++firstMobIndex) {
-		const mob = $dataEnemies[firstMobIndex];
-		if (mob.name === '--Start Prepared Mobs') {
-			// Start after the tag so it is still there next time we need to prepare mobs.
-			firstMobIndex = firstMobIndex + 1;
-			break;
-		}
-	}
-
 	// Where should we spawn the mobs?
 	const spawnerX = $gameVariables._data[11] || 0;
 	const spawnerY = $gameVariables._data[12] || 0;
@@ -544,17 +530,7 @@ TIOK.SmithMobGenerator.createMobEvents = function() {
 	const isSwarm = !isLoner && !isPack; // 20% chance of large swarm.
 
 	const possibleMobs = TIOK.CustomSave.mobsByRegion[spawnerRegion];
-	// I still haven't figured out why, but the ids that I set up don't seem to be persisting...
-	// possibleMobs.swarmCommon.id = firstMobIndex;
-	// possibleMobs.swarmRare.id = firstMobIndex + 1;
-	// possibleMobs.packCommon.id = firstMobIndex + 2;
-	// possibleMobs.packRare.id = firstMobIndex + 3;
-	// possibleMobs.lonerCommon.id = firstMobIndex + 4;
-	// possibleMobs.lonerRare.id = firstMobIndex + 5;
-	// possibleMobs.minibossCommon.id = firstMobIndex + 6;
-	// possibleMobs.minibossRare.id = firstMobIndex + 7;
 
-	console.log('createMobEvents()', TIOK.CustomSave.mobsByRegion[spawnerRegion]);
 	const isRareMob = Math.random() > 0.9; // 10% chance of rare mob.
 
 	let chosenMob = null;
@@ -570,9 +546,6 @@ TIOK.SmithMobGenerator.createMobEvents = function() {
 		chosenMob = isRareMob ? possibleMobs.swarmRare : possibleMobs.swarmCommon;
 		numMobs = Math.floor(Math.random() * 6) + 5; // 5-10 mobs.
 	}
-
-	console.log('Chosen mob', chosenMob);
-	console.log(`Num mobs: ${numMobs}`);
 
 	for (let mi = 0; mi < numMobs; ++mi) {
 		const mobEvent = new Mob_Event(chosenMob, spawnerX, spawnerY);
