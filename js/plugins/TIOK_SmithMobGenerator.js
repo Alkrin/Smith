@@ -16,6 +16,10 @@
 @text 'PrepareMobsForCurrentRegion'
 @ desc 'Populates the database with all mobs for the current region.'
 
+@command selectRandomMapForCurrentRegion
+@text 'SelectRandomMapForCurrentRegion'
+@ desc 'Places the ID of a valid map in variable #3.'
+
 @help 
 
 ============================================================================
@@ -130,6 +134,44 @@ PluginManager.registerCommand('TIOK_SmithMobGenerator', 'prepareMobsForCurrentRe
 
 	$dataEnemies[firstMobIndex + 7] = possibleMobs.minibossRare;
 	$dataEnemies[firstMobIndex + 7].id = firstMobIndex + 7;
+});
+
+PluginManager.registerCommand('TIOK_SmithMobGenerator', 'selectRandomMapForCurrentRegion' , function(args) {
+	// What map region are we in?
+	const spawnerRegion = $gameVariables._data[13] || 1;
+
+	// Check which maps can appear in this region.
+	const commonMaps = [];
+	const rareMaps = [];
+	for (let mi = 1; mi < $dataMapInfos.length; ++mi) {
+		const regions = $dataMapInfos[mi].regions;
+		if (regions) {
+			console.log
+			if (regions[spawnerRegion] === 'Common') {
+				commonMaps.push(mi);
+			} else if (regions[spawnerRegion] === 'Rare') {
+				rareMaps.push(mi);
+			}
+		}
+	}
+	// Pick a random map.
+	const isRare = Math.random() < 0.1;
+	let chosenMap;
+	if (isRare && rareMaps.length > 0) {
+		const mapIndex = Math.floor(Math.random() * rareMaps.length);
+		chosenMap = $dataMapInfos[rareMaps[mapIndex]];
+	} else {
+		const mapIndex = Math.floor(Math.random() * commonMaps.length);
+		chosenMap = $dataMapInfos[commonMaps[mapIndex]];
+	}
+	
+	console.log(chosenMap);
+	// Set the map ID into variable #15.
+	$gameVariables._data[15] = chosenMap.id;
+	// Set the map start X into variable #16.
+	$gameVariables._data[16] = chosenMap.startX;
+	// Set the map start Y into variable #17.
+	$gameVariables._data[17] = chosenMap.startY;
 });
 
 //=============================================================================
@@ -292,6 +334,39 @@ DataManager.createGameObjects = function() {
 	}
 	TIOK.SmithMobGenerator.forms = forms;
 	console.log('Forms', forms);
+
+	// Preload map notes.
+	for (let i = 1; i < $dataMapInfos.length; ++i) {
+		const xhr = new XMLHttpRequest();
+		const url = "data/Map%1.json".format(i.padZero(3));
+		xhr.open("GET", url);
+		xhr.overrideMimeType("application/json");
+		xhr.onload = () => {
+			if (xhr.status < 400) {
+				const data = JSON.parse(xhr.responseText);
+				const notes = data.note.split('\n');
+				$dataMapInfos[i].regions = {};
+				// Parse out "StartX", "StartY", and "Region".
+				for (let ni = 0; ni < notes.length; ++ni) {
+					const note = notes[ni];
+					if (note.startsWith('StartX:')) {
+						$dataMapInfos[i].startX = +note.substr(7);
+					} else if (note.startsWith('StartY:')) {
+						$dataMapInfos[i].startY = +note.substr(7);
+					} else if (note.startsWith('Region:')) {
+						const raw = note.substr(7).split(',');
+						$dataMapInfos[i].regions[raw[0]] = raw[1];
+					}
+				}
+			} else {
+				console.log(`Error ${xhr.status}.  Failed to open "${url}".`);
+			}
+		};
+		xhr.onerror = () => {
+			console.log(`Failed to open "${url}".`);
+		};
+		xhr.send();
+	}
 };
 
 TIOK.SmithMobGenerator.generateMobOfTier = function(tier, size) {
