@@ -18,7 +18,7 @@
 
 @command selectRandomMapForCurrentRegion
 @text 'SelectRandomMapForCurrentRegion'
-@ desc 'Places the ID of a valid map in variable #3.'
+@ desc 'Select a RandomEncounter map and set up the transfer data.'
 
 @help 
 
