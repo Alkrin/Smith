@@ -8,6 +8,14 @@
 
 @author TIOK
 
+@command pickOresForThisPlaythrough
+@text 'PickOresForThisPlaythrough'
+@ desc 'Picks the ores that should appear during this playthrough.'
+
+@command grantOreFromCurrentRegion
+@text 'GrantOreFromCurrentRegion'
+@ desc 'Gives the user a random ore from the current region.'
+
 @help 
 
 ============================================================================
@@ -30,6 +38,53 @@ Imported.TIOK_SmithItemGenerator = true;
 
 var TIOK = TIOK || {};
 TIOK.SmithItemGenerator = TIOK.SmithItemGenerator || {};
+
+//=============================================================================
+// Plugin Commands
+//=============================================================================
+
+PluginManager.registerCommand('TIOK_SmithItemGenerator', 'pickOresForThisPlaythrough' , function(args) {
+	const chosenOres = {};
+
+	Object.entries(TIOK.SmithItemGenerator.ores).forEach((entry) => {
+		const oreRank = entry[0];
+		const oreArray = entry[1];
+
+		const chosenIndex = Math.floor(Math.random() * oreArray.length);
+		chosenOres[oreRank] = oreArray[chosenIndex];
+	});
+
+
+	// We want the chosen ores to persist across save / load.
+	TIOK.CustomSave.chosenOres = chosenOres;
+	console.log('Chosen Ores', chosenOres);
+});
+
+PluginManager.registerCommand('TIOK_SmithItemGenerator', 'grantOreFromCurrentRegion' , function(args) {
+	// What map region are we in?
+	const spawnerRegion = $gameVariables._data[13] || 1;
+
+	let oreRarity = 'E';
+
+	const isRare = Math.random() < 0.17;
+	if (spawnerRegion <= 6) {
+		// Chapter 1
+		oreRarity = isRare ? 'D' : 'E';
+	} else {
+		// TODO: Other chapters.
+	}
+	const oreID = TIOK.CustomSave.chosenOres[oreRarity].index;
+
+	// Give the item to the player.
+	if ($gameParty._items[oreID]) {
+		$gameParty._items[oreID] += 1;
+	} else {
+		$gameParty._items[oreID] = 1;
+	}
+
+	// Put the ore's name into a variable so we can show it in a text box.
+	$gameVariables._data[21] = TIOK.CustomSave.chosenOres[oreRarity].name;
+});
 
 //=============================================================================
 // Plugin Dependencies
