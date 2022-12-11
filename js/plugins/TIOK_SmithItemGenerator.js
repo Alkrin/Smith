@@ -729,7 +729,15 @@ DataManager.createGameObjects = function() {
 	TIOK.SmithItemGenerator.ores = ores;
 	console.log('Ores:', ores);
 
-	const additives = [];
+	const additives = {
+		Flux: [],
+		E: [],
+		D: [],
+		C: [],
+		B: [],
+		A: [],
+		S: [],
+	};
 	let inAdditives = false;
 	for (let i = 1; i < $dataItems.length; ++i) {
 		const additive = $dataItems[i];
@@ -738,7 +746,12 @@ DataManager.createGameObjects = function() {
 				break;
 			}
 			if (additiveIsValid(additive)) {
-				additives.push(parseAdditive(additive));
+				const parsedAdditive = parseAdditive(additive);
+				if (parsedAdditive.family === 'flux') {
+					additives.Flux.push(parsedAdditive);
+				} else {
+					additives[parsedAdditive.rank].push(parsedAdditive);
+				}
 			}
 		} else if (additive.name === '--StartAdditives') {
 			inAdditives = true;
@@ -861,6 +874,7 @@ function parseAdditive(item) {
 		rank: notes.find((note) => { return note.startsWith('Rank:')}).substr(5),
 		family: notes.find((note) => { return note.startsWith('Family:')}).substr(7),
 		image: notes.find((note) => { return note.startsWith('Image:')}).substr(6),
+		color: TIOK.Utils.hex2rgb(notes.find((note) => { return note.startsWith('Color:')}).substr(7)),
 	};
 
 	return additive;
