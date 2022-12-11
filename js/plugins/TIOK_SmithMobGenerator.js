@@ -90,6 +90,7 @@ PluginManager.registerCommand('TIOK_SmithMobGenerator', 'generateMobsForAllRegio
 
 	// We want the generated mobs to persist across save / load.
 	TIOK.CustomSave.mobsByRegion = mobsByRegion;
+	console.log('MobsByRegion', mobsByRegion);
 });
 
 PluginManager.registerCommand('TIOK_SmithMobGenerator', 'prepareMobsForCurrentRegion' , function(args) {
@@ -380,6 +381,7 @@ TIOK.SmithMobGenerator.generateMobOfTier = function(tier, size) {
 	const element = TIOK.SmithMobGenerator.getRandomElement();
 	const weakness = TIOK.SmithMobGenerator.getRandomWeakness();
 	const name = TIOK.SmithMobGenerator.getRandomName(form);
+	const loot = TIOK.SmithMobGenerator.getRandomLoot(tier)
 
 	// Start by cloning the base template.
 	const mob = JSON.parse(JSON.stringify(base));
@@ -389,6 +391,9 @@ TIOK.SmithMobGenerator.generateMobOfTier = function(tier, size) {
 
 	// Attacks and abilities.
 	mob.actions = JSON.parse(JSON.stringify(moves.actions));
+
+	// Loot
+	mob.loot = loot;
 
 	// Appearance.
 	let eyeColor = 'Green';
@@ -590,6 +595,19 @@ TIOK.SmithMobGenerator.getRandomName = function(form) {
 	}
 }
 
+TIOK.SmithMobGenerator.getRandomLoot = function(tier) {
+	// Note that F-tier mobs exist, but the lowest additive is E-tier.
+	// This means that F-tier mobs are absolute trash, with no loot.
+	if (tier === 'F') {
+		return undefined;
+	}
+
+	// Pick a random item from all non-flux additives of the given tier.
+	const possibleLoot = TIOK.SmithItemGenerator.additives[tier];
+	const index = Math.floor(Math.random() * possibleLoot.length)
+	return possibleLoot[index];
+}
+
 TIOK.SmithMobGenerator.createMobEvents = function() {
 	// Where should we spawn the mobs?
 	const spawnerX = $gameVariables._data[11] || 0;
@@ -609,21 +627,31 @@ TIOK.SmithMobGenerator.createMobEvents = function() {
 	const isRareMob = Math.random() > 0.9; // 10% chance of rare mob.
 
 	let chosenMob = null;
+	let lootChance = 0;
 	let numMobs = 1;
 	if (spawnMiniboss) {
 		chosenMob = isRareMob ? possibleMobs.minibossRare : possibleMobs.minibossCommon;
+		lootChance = 1; // 100% chance of loot on minibosses.
 	} else if (isLoner) {
 		chosenMob = isRareMob ? possibleMobs.lonerRare : possibleMobs.lonerCommon;
+		lootChance = 0.3; // 30% chance of loot on loners.
 	} else if (isPack) {
 		chosenMob = isRareMob ? possibleMobs.packRare : possibleMobs.packCommon;
 		numMobs = Math.floor(Math.random() * 3) + 3; // 3-5 mobs.
+		lootChance = 0.09; // 9% gives final odds between 25% and 38% for the whole pack.
 	} else if (isSwarm) {
 		chosenMob = isRareMob ? possibleMobs.swarmRare : possibleMobs.swarmCommon;
 		numMobs = Math.floor(Math.random() * 6) + 5; // 5-10 mobs.
+		lootChance = 0.05; // 5% gives final odds between 23% and 40% for the whole swarm.
+		if (chosenMob.tier === 'F') {
+			// Mobs drop loot at their tier, but the lowest additive is Tier E, so F-rank
+			// mobs are just trash that only grant xp.
+			lootChance = 0;
+		}
 	}
 
 	for (let mi = 0; mi < numMobs; ++mi) {
-		const mobEvent = new Mob_Event(chosenMob, spawnerX, spawnerY);
+		const mobEvent = new Mob_Event(chosenMob, spawnerX, spawnerY, lootChance);
 		$gameMap._events[$gameMap._events.length] = mobEvent;
 
 		const spriteset = SceneManager._scene._spriteset;
@@ -647,7 +675,7 @@ function Mob_Event() {
 Mob_Event.prototype = Object.create(Game_Event.prototype);
 Mob_Event.prototype.constructor = Mob_Event;
 
-Mob_Event.prototype.initialize = function(mobData, spawnerX, spawnerY) {
+Mob_Event.prototype.initialize = function(mobData, spawnerX, spawnerY, lootChance) {
 	const myEventId = $gameMap._events.length;
 	let eyeIndex;
 	switch(mobData.eyeColor) {
@@ -662,6 +690,11 @@ Mob_Event.prototype.initialize = function(mobData, spawnerX, spawnerY) {
 	this._mobData = mobData;
 	this._spawnerX = spawnerX;
 	this._spawnerY = spawnerY;
+
+	// Make sure the loot message is more or less horizontally centered.
+	const lootName = mobData.loot?.name ?? "";
+	const spaces = Math.ceil(16 - lootName.length / 2);
+	const lootMessage = `${` `.repeat(spaces)}* Found \\C[14][${lootName}]\\C[0]! *`;
 
 	// Rather than referencing $dataMap._events, we create a new custom event.
 	this._eventData = {
@@ -695,8 +728,14 @@ Mob_Event.prototype.initialize = function(mobData, spawnerX, spawnerY) {
 					{code: 301, indent: 0, parameters: [0, 12, false, true]},									// Battle Processing - Troop 12: Random Battle
 					{code: 601, indent: 0, parameters: []},														// Start "Battle Won" handler
 					{code: 250, indent: 1, parameters: [{name: "Sheep", volume: 90, pitch: 100, pan: 0}]}, 		// Play SE
+					{code: 111, indent: 1, parameters: [12,`Math.random() <= ${lootChance}`]},					// "If has loot" conditional check.
+					{code: 126, indent: 2, parameters: [mobData.loot?.index ?? 7, 0, 0, 1]},					// Grant loot (one item).
+					{code: 101, indent: 2, parameters: ["", 0, 1, 1, ""]},										// Start building a Message window.
+					{code: 401, indent: 2, parameters: ["\\FS[32]"]},											// First Message row.  Sets FontSize.
+					{code: 401, indent: 2, parameters: [lootMessage]},											// Second Message row. Lists item name.
+					{code: 0, indent: 2, parameters: []}, 														// End rows for the Message window.
+					{code: 412, indent: 1, parameters: []},														// End "If has loot" handler.
 					{code: 214, indent: 1, parameters: []}, 													// Erase this mob since it's dead.
-					// TODO: Grant rewards on combat win.
 					{code: 0, indent: 1, parameters: []}, 														// End "Battle Won" handler
 					{code: 603, indent: 0, parameters: []},														// Start "Battle Lost" handler
 					{code: 353, indent: 1, parameters: []}, 													// Game Over

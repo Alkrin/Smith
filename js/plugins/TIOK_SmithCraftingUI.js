@@ -901,11 +901,9 @@ Sprite_CraftingAdditive.prototype.redraw = function () {
 };
 
 Sprite_CraftingAdditive.prototype.updateBlendColor = function () {
-	// TODO: Do I need to make foreground and background into separate sprites so that I can colorize them individually?
-
-	// const oreColor = this._ore.color;
-	// oreColor.push(128); // Alpha
-	// this.setBlendColor(oreColor);
+	const color = this._additive.color;
+	color.push(128); // Alpha
+	this.setBlendColor(color);
 }
 
 //=============================================================================
