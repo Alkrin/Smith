@@ -76,7 +76,14 @@ TIOK.getFireHeat = function() {
 }
 
 TIOK.getAdditiveById = function(additiveId) {
-	return TIOK.SmithItemGenerator.additives.find((additive) => { return additive.index === additiveId; });
+	let additive = null;
+	Object.values(TIOK.SmithItemGenerator.additives).find((additivesByRank) => {
+		additive = additivesByRank.find((item) => {
+			return item.index === additiveId;
+		});
+		return additive;
+	});
+	return additive;
 }
 
 TIOK.getOreById = function(oreId) {

@@ -643,11 +643,10 @@ TIOK.SmithMobGenerator.createMobEvents = function() {
 		chosenMob = isRareMob ? possibleMobs.swarmRare : possibleMobs.swarmCommon;
 		numMobs = Math.floor(Math.random() * 6) + 5; // 5-10 mobs.
 		lootChance = 0.05; // 5% gives final odds between 23% and 40% for the whole swarm.
-		if (chosenMob.tier === 'F') {
-			// Mobs drop loot at their tier, but the lowest additive is Tier E, so F-rank
-			// mobs are just trash that only grant xp.
-			lootChance = 0;
-		}
+	}
+	if (chosenMob.loot == undefined) {
+		// Some mobs (i.e. F-rank) have no loot, so no chance of loot either!
+		lootChance = 0;
 	}
 
 	for (let mi = 0; mi < numMobs; ++mi) {
